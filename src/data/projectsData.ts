@@ -1,0 +1,153 @@
+import { Project } from '../types';
+
+export const PROJECTS_DATA: Project[] = [
+  {
+    id: 'pulse-design-system',
+    title: 'Pulse Studio & Design System',
+    tagline: 'Neo-brutalist component architecture for next-gen fintechs',
+    description: 'An open-spec multi-brand tokenized design system engineered with React, Tailwind, and WebGL kinetic canvas shaders.',
+    longDescription: 'Pulse is an enterprise design system crafted to balance bold neo-brutalist aesthetics with strict accessibility standards (WCAG AAA). Features zero-runtime CSS tokens, custom fluid typography curves, and high-frequency real-time stock ticker micro-interactions.',
+    category: 'web',
+    categoryLabel: 'Design System & Web App',
+    year: '2025',
+    role: 'Lead Frontend Architect',
+    deliverables: ['Component Library', 'Figma Tokens Sync', 'WebGL Visuals', 'Micro-Interactions'],
+    metrics: [
+      { label: 'Components', value: '85+' },
+      { label: 'Weekly DLs', value: '42k' },
+      { label: 'Lighthouse Score', value: '100' }
+    ],
+    tags: ['React', 'TypeScript', 'Tailwind CSS', 'WebGL', 'Framer Motion'],
+    image: 'https://images.unsplash.com/photo-1551288049-bebda4e38f71?q=80&w=1200&auto=format&fit=crop',
+    secondaryImage: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?q=80&w=1000&auto=format&fit=crop',
+    accentColor: '#1D4ED8',
+    accentText: 'text-blue-600',
+    featured: true,
+    colSpanDesktop: 8,
+    liveUrl: 'https://example.com/pulse',
+    githubUrl: 'https://github.com/example/pulse-system'
+  },
+  {
+    id: 'kanso-pay',
+    title: 'Kanso Mobile FinTech',
+    tagline: 'Borderless treasury & multi-currency wallet with instant settlements',
+    description: 'A tactile iOS/Android mobile wallet experience with biometric vaults and sub-second FX conversion routing.',
+    longDescription: 'Engineered a buttery-smooth multi-currency wallet application featuring haptic audio feedback, real-time cross-border FX execution charts, and smart NFC tap-to-split card interfaces.',
+    category: 'mobile',
+    categoryLabel: 'Mobile FinTech App',
+    year: '2025',
+    role: 'Product Engineer',
+    deliverables: ['Mobile Prototype', 'Biometric Auth Flow', 'FX Live Charting'],
+    metrics: [
+      { label: 'App Rating', value: '4.9★' },
+      { label: 'Processed', value: '$12M+' }
+    ],
+    tags: ['React Native', 'TypeScript', 'Tailwind', 'Reanimated'],
+    image: 'https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=800&auto=format&fit=crop',
+    secondaryImage: 'https://images.unsplash.com/photo-1559526324-4b87b5e36e44?q=80&w=800&auto=format&fit=crop',
+    accentColor: '#CCFF00',
+    accentText: 'text-black',
+    featured: true,
+    colSpanDesktop: 4,
+    liveUrl: 'https://example.com/kanso',
+    githubUrl: 'https://github.com/example/kanso-pay'
+  },
+  {
+    id: 'hyper-synth-lab',
+    title: 'HyperSynth Kinetic Lab',
+    tagline: 'Interactive 3D typography & generative audio visualizer in WebGL',
+    description: 'Experimental audio-reactive web laboratory synchronizing procedural generative shaders with browser WebAudio synthesis.',
+    longDescription: 'A playground pushing browser graphics boundaries with real-time Fast Fourier Transform (FFT) analysis driving procedural geometry and kinetic typographic distortions at consistent 60fps.',
+    category: 'creative',
+    categoryLabel: 'Creative Dev & WebGL',
+    year: '2024',
+    role: 'Creative Technologist',
+    deliverables: ['Custom Shader Shaders', 'WebAudio Engine', 'Spatial Canvas'],
+    metrics: [
+      { label: 'FPS Rate', value: '60 fps' },
+      { label: 'Bundle Size', value: '< 180kb' }
+    ],
+    tags: ['Three.js', 'GLSL', 'WebAudio API', 'Canvas2D'],
+    image: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=800&auto=format&fit=crop',
+    secondaryImage: 'https://images.unsplash.com/photo-1634017839464-5c339ebe3cb4?q=80&w=800&auto=format&fit=crop',
+    accentColor: '#A78BFA',
+    accentText: 'text-purple-600',
+    featured: false,
+    colSpanDesktop: 4,
+    liveUrl: 'https://example.com/hypersynth',
+    githubUrl: 'https://github.com/example/hypersynth'
+  },
+  {
+    id: 'aurora-ai-workspace',
+    title: 'Aurora Autonomous AI Agent IDE',
+    tagline: 'Collaborative code intelligence workspace for engineering squads',
+    description: 'High-throughput developer platform combining multi-agent AST orchestration, visual dependency DAGs, and live testing tunnels.',
+    longDescription: 'Architected the frontend telemetry streaming pipeline, visual DAG canvas, and split-screen code editing workbench for distributed software development teams using cutting-edge LLM agents.',
+    category: 'ai',
+    categoryLabel: 'AI Developer Platform',
+    year: '2024',
+    role: 'Lead Architect',
+    deliverables: ['DAG Visualizer', 'Monaco Code Editor', 'WebSocket Telemetry'],
+    metrics: [
+      { label: 'Latency', value: '24ms' },
+      { label: 'Active Orgs', value: '1.4k' }
+    ],
+    tags: ['React', 'TypeScript', 'Node.js', 'WebSockets', 'Tailwind'],
+    image: 'https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?q=80&w=1200&auto=format&fit=crop',
+    secondaryImage: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?q=80&w=1000&auto=format&fit=crop',
+    accentColor: '#34D399',
+    accentText: 'text-emerald-700',
+    featured: true,
+    colSpanDesktop: 8,
+    liveUrl: 'https://example.com/aurora',
+    githubUrl: 'https://github.com/example/aurora-ai'
+  },
+  {
+    id: 'orbit-tokenomics',
+    title: 'Orbit Global Data Observability',
+    tagline: 'Real-time multi-cloud telemetry and incident remediation dashboard',
+    description: 'Interactive dashboard handling over 2M data points per minute with instant metric filtering and customizable bento tiles.',
+    longDescription: 'Constructed an ultra-responsive monitoring suite utilizing virtualized lists, custom canvas-rendered time-series sparklines, and modular draggable bento widgets.',
+    category: 'web',
+    categoryLabel: 'Data & Cloud Observability',
+    year: '2023',
+    role: 'Frontend Specialist',
+    deliverables: ['Data Visualization', 'Custom Bento Grid Engine', 'Alerting System'],
+    metrics: [
+      { label: 'Data Points/s', value: '35,000' },
+      { label: 'Render Lag', value: '< 8ms' }
+    ],
+    tags: ['React', 'TypeScript', 'D3.js', 'Tailwind', 'Zustand'],
+    image: 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=1000&auto=format&fit=crop',
+    accentColor: '#1D4ED8',
+    accentText: 'text-blue-600',
+    featured: false,
+    colSpanDesktop: 6,
+    liveUrl: 'https://example.com/orbit',
+    githubUrl: 'https://github.com/example/orbit-telemetry'
+  },
+  {
+    id: 'zenith-spatial',
+    title: 'Zenith Spatial Commerce Engine',
+    tagline: 'Immersive AR-first retail configuration platform',
+    description: '3D luxury product customizer enabling photo-realistic materials rendering and instant AR room projection.',
+    longDescription: 'Pioneered a WebXR and WebGL-powered 3D customizer for high-end industrial design products, supporting PBR textures and real-time lighting previews directly in Safari & Chrome mobile browsers.',
+    category: 'creative',
+    categoryLabel: 'WebXR & 3D Commerce',
+    year: '2023',
+    role: 'Interactive Developer',
+    deliverables: ['PBR Shader Engine', 'WebXR Pipeline', 'Checkout Checkout flow'],
+    metrics: [
+      { label: 'Conversion Lift', value: '+38%' },
+      { label: 'Load Time', value: '1.2s' }
+    ],
+    tags: ['Three.js', 'WebXR', 'React', 'Tailwind'],
+    image: 'https://images.unsplash.com/photo-1508739773434-c26b3d09e071?q=80&w=1000&auto=format&fit=crop',
+    accentColor: '#CCFF00',
+    accentText: 'text-black',
+    featured: false,
+    colSpanDesktop: 6,
+    liveUrl: 'https://example.com/zenith',
+    githubUrl: 'https://github.com/example/zenith-commerce'
+  }
+];
