@@ -3,9 +3,10 @@ import React from 'react';
 interface FooterProps {
   lang: 'ID' | 'EN';
   darkMode: boolean;
+  onOpenAdmin?: () => void;
 }
 
-export const Footer: React.FC<FooterProps> = ({ lang, darkMode }) => {
+export const Footer: React.FC<FooterProps> = ({ lang, darkMode, onOpenAdmin }) => {
   return (
     <footer
       className={`w-full mt-space-xl border-t transition-colors duration-300 ${
@@ -71,9 +72,9 @@ export const Footer: React.FC<FooterProps> = ({ lang, darkMode }) => {
           </a>
         </div>
 
-        {/* Middle Bar: Location & Socials */}
+        {/* Middle Bar: Location & Socials (Clean, Symmetrical Padding - No Over-padding) */}
         <div
-          className={`flex flex-col md:flex-row items-center justify-between gap-space-md pt-space-lg rounded-2xl p-space-md border transition-colors ${
+          className={`flex flex-col md:flex-row items-center justify-between gap-3 px-5 py-3.5 sm:px-6 sm:py-3.5 rounded-2xl border transition-colors ${
             darkMode
               ? 'bg-[#0d1527] border-[#1e293b]'
               : 'bg-[#f2f3ff] border-[#eaedff]'
@@ -118,11 +119,13 @@ export const Footer: React.FC<FooterProps> = ({ lang, darkMode }) => {
         {/* Bottom Rights Bar */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-space-sm text-center sm:text-left">
           <p
-            className={`text-xs font-medium ${
+            className={`text-xs font-medium flex items-center justify-center sm:justify-start flex-wrap ${
               darkMode ? 'text-[#94a3b8]' : 'text-[#434655]'
             }`}
           >
-            © 2025 Yahya Aditya Saputra. {lang === 'ID' ? 'Hak cipta dilindungi undang-undang.' : 'All rights reserved.'}
+            <span>
+              © 2025 Yahya Aditya Saputra. {lang === 'ID' ? 'Hak cipta dilindungi undang-undang.' : 'All rights reserved.'}
+            </span>
           </p>
 
           <div
@@ -134,7 +137,15 @@ export const Footer: React.FC<FooterProps> = ({ lang, darkMode }) => {
             <span className={darkMode ? 'text-[#64748b]' : ''}>•</span>
             <span>Creative UI/UX</span>
             <span className={darkMode ? 'text-[#64748b]' : ''}>•</span>
-            <span>Next-Gen Web</span>
+            {/* The Hidden Stealth Trigger disguised perfectly as normal text */}
+            <button
+              type="button"
+              onClick={onOpenAdmin}
+              className="font-semibold text-xs transition-opacity cursor-default select-none focus:outline-none focus:ring-0 active:opacity-75"
+              tabIndex={-1}
+            >
+              Next-Gen Web
+            </button>
           </div>
         </div>
 

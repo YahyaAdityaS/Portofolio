@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { ProjectItem } from '../data/portfolioData';
 
 interface ProjectModalProps {
@@ -9,157 +10,217 @@ interface ProjectModalProps {
 }
 
 export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, lang, darkMode = false }) => {
-  if (!project) return null;
+  // Lock body scroll when modal is open and handle Escape key
+  useEffect(() => {
+    if (project) {
+      document.body.style.overflow = 'hidden';
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') onClose();
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => {
+        document.body.style.overflow = '';
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    } else {
+      document.body.style.overflow = '';
+    }
+  }, [project, onClose]);
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in duration-200"
-      onClick={onClose}
-    >
-      <div 
-        className={`rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border overflow-hidden relative max-h-[90vh] flex flex-col transition-colors ${
-          darkMode
-            ? 'bg-[#111a2e] border-[#1e293b]'
-            : 'bg-white border-slate-200'
-        }`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Close Button */}
-        <button
-          type="button"
+    <AnimatePresence>
+      {project && (
+        <motion.div
+          key="modal-backdrop"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md"
           onClick={onClose}
-          className={`absolute top-5 right-5 w-9 h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
-            darkMode
-              ? 'bg-[#16223b] hover:bg-[#1e293b] text-white'
-              : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-          }`}
         >
-          <span className="material-symbols-outlined text-lg">close</span>
-        </button>
-
-        {/* Header Badge */}
-        <div className="flex items-center gap-2 mb-3">
-          <span className="px-3 py-1 rounded-full text-xs font-bold bg-[#dce1ff] text-[#001551]">
-            {project.badge}
-          </span>
-          <span className={`text-xs font-bold ${darkMode ? 'text-[#94a3b8]' : 'text-slate-500'}`}>
-            • {project.year}
-          </span>
-        </div>
-
-        {/* Title */}
-        <h3
-          className={`text-2xl sm:text-3xl font-extrabold tracking-tight mb-2 ${
-            darkMode ? 'text-white' : 'text-[#131b2e]'
-          }`}
-        >
-          {project.title}
-        </h3>
-
-        <p
-          className={`text-sm sm:text-base mb-6 font-medium leading-relaxed ${
-            darkMode ? 'text-[#cbd5e1]' : 'text-slate-600'
-          }`}
-        >
-          {project.description}
-        </p>
-
-        {/* Technical Highlights */}
-        <div
-          className={`rounded-2xl p-4 sm:p-5 mb-6 border space-y-3 ${
-            darkMode
-              ? 'bg-[#0d1527] border-[#23324f]'
-              : 'bg-[#f2f3ff] border-[#eaedff]'
-          }`}
-        >
-          <h4
-            className={`text-xs font-bold uppercase tracking-wider ${
-              darkMode ? 'text-[#38bdf8]' : 'text-primary'
+          <motion.div
+            key="modal-card"
+            initial={{ opacity: 0, scale: 0.86, y: 35 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            transition={{
+              type: 'spring',
+              damping: 26,
+              stiffness: 340,
+            }}
+            className={`rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border overflow-hidden relative max-h-[90vh] flex flex-col transition-colors ${
+              darkMode
+                ? 'bg-[#111a2e] border-[#23324f] shadow-[0_25px_60px_rgba(0,0,0,0.8)]'
+                : 'bg-white border-slate-200 shadow-[0_25px_60px_rgba(37,99,235,0.15)]'
             }`}
+            onClick={(e) => e.stopPropagation()}
           >
-            {lang === 'ID' ? 'Spesifikasi Arsitektur & Performa' : 'Architecture & Performance Specs'}
-          </h4>
-          <ul
-            className={`text-xs sm:text-sm space-y-2 font-medium ${
-              darkMode ? 'text-[#cbd5e1]' : 'text-slate-700'
-            }`}
-          >
-            <li className="flex items-center gap-2">
-              <span
-                className={`material-symbols-outlined text-base ${
-                  darkMode ? 'text-[#bef264]' : 'text-primary'
-                }`}
-              >
-                verified
-              </span>
-              <span>100% Core Web Vitals & Sub-second Initial Page Render</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span
-                className={`material-symbols-outlined text-base ${
-                  darkMode ? 'text-[#bef264]' : 'text-primary'
-                }`}
-              >
-                verified
-              </span>
-              <span>Modular Atomic Component Model with Strict Type Safety</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <span
-                className={`material-symbols-outlined text-base ${
-                  darkMode ? 'text-[#bef264]' : 'text-primary'
-                }`}
-              >
-                verified
-              </span>
-              <span>End-to-end Telemetry & Automated Deployment Pipeline</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* Tags */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          {project.tags.map((tag) => (
-            <span
-              key={tag}
-              className={`text-xs font-bold px-3 py-1 rounded-full ${
+            {/* Close Button with fluid motion */}
+            <motion.button
+              type="button"
+              onClick={onClose}
+              whileHover={{ scale: 1.15, rotate: 90 }}
+              whileTap={{ scale: 0.9 }}
+              className={`absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${
                 darkMode
-                  ? 'bg-[#16223b] border border-[#334155] text-white'
-                  : 'bg-[#eaedff] text-[#131b2e]'
+                  ? 'bg-[#16223b] hover:bg-[#23324f] text-white border border-[#334155]'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
               }`}
             >
-              {tag}
-            </span>
-          ))}
-        </div>
+              <span className="material-symbols-outlined text-xl">close</span>
+            </motion.button>
 
-        {/* Modal CTA Buttons */}
-        <div
-          className={`flex items-center justify-end gap-3 pt-4 border-t mt-auto ${
-            darkMode ? 'border-[#1e293b]' : 'border-slate-100'
-          }`}
-        >
-          <button
-            type="button"
-            onClick={onClose}
-            className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
-              darkMode
-                ? 'text-[#cbd5e1] hover:bg-[#16223b]'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            {lang === 'ID' ? 'Tutup' : 'Close'}
-          </button>
-          <a
-            href="#diskusi-proyek"
-            onClick={onClose}
-            className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs sm:text-sm font-bold shadow-md hover:-translate-y-0.5 transition-all"
-          >
-            <span>{lang === 'ID' ? 'Tanyakan Studi Kasus' : 'Inquire Case Study'}</span>
-            <span className="material-symbols-outlined text-sm">arrow_forward</span>
-          </a>
-        </div>
-      </div>
-    </div>
+            {/* Header Badge */}
+            <motion.div
+              initial={{ opacity: 0, x: -15 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.1 }}
+              className="flex items-center gap-2 mb-3"
+            >
+              <span className="px-3.5 py-1 rounded-full text-xs font-black bg-[#bef264] text-[#080c16] shadow-xs">
+                {project.badge}
+              </span>
+              <span className={`text-xs font-bold ${darkMode ? 'text-[#94a3b8]' : 'text-slate-500'}`}>
+                • {project.year}
+              </span>
+              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
+                darkMode ? 'bg-[#16223b] text-[#38bdf8]' : 'bg-blue-50 text-primary'
+              }`}>
+                {project.status}
+              </span>
+            </motion.div>
+
+            {/* Title */}
+            <motion.h3
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className={`text-2xl sm:text-3xl font-black tracking-tight mb-2.5 leading-tight ${
+                darkMode ? 'text-white' : 'text-[#131b2e]'
+              }`}
+            >
+              {project.title}
+            </motion.h3>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className={`text-sm sm:text-base mb-5 font-medium leading-relaxed ${
+                darkMode ? 'text-[#cbd5e1]' : 'text-slate-600'
+              }`}
+            >
+              {project.description}
+            </motion.p>
+
+            {/* Technical Highlights with animated entries */}
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className={`rounded-2xl p-4 sm:p-5 mb-5 border space-y-3 ${
+                darkMode
+                  ? 'bg-[#0d1527] border-[#23324f]'
+                  : 'bg-[#f2f3ff] border-[#eaedff]'
+              }`}
+            >
+              <h4
+                className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
+                  darkMode ? 'text-[#38bdf8]' : 'text-primary'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">architecture</span>
+                <span>{lang === 'ID' ? 'Spesifikasi Arsitektur & Performa' : 'Architecture & Performance Specs'}</span>
+              </h4>
+              <ul
+                className={`text-xs sm:text-sm space-y-2.5 font-medium ${
+                  darkMode ? 'text-[#cbd5e1]' : 'text-slate-700'
+                }`}
+              >
+                <li className="flex items-center gap-2.5">
+                  <span
+                    className={`material-symbols-outlined text-base shrink-0 ${
+                      darkMode ? 'text-[#bef264]' : 'text-primary'
+                    }`}
+                  >
+                    verified
+                  </span>
+                  <span>100% Core Web Vitals, Sub-second Initial Page Render & Zero Layout Shift</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span
+                    className={`material-symbols-outlined text-base shrink-0 ${
+                      darkMode ? 'text-[#bef264]' : 'text-primary'
+                    }`}
+                  >
+                    verified
+                  </span>
+                  <span>Modular Atomic Component Model with Strict End-to-End Type Safety</span>
+                </li>
+                <li className="flex items-center gap-2.5">
+                  <span
+                    className={`material-symbols-outlined text-base shrink-0 ${
+                      darkMode ? 'text-[#bef264]' : 'text-primary'
+                    }`}
+                  >
+                    verified
+                  </span>
+                  <span>Optimized REST/GraphQL APIs with Automated GitHub Actions CI/CD Pipeline</span>
+                </li>
+              </ul>
+            </motion.div>
+
+            {/* Tags */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-wrap gap-2 mb-6"
+            >
+              {project.tags.map((tag) => (
+                <span
+                  key={tag}
+                  className={`text-xs font-bold px-3 py-1 rounded-full transition-transform hover:scale-105 ${
+                    darkMode
+                      ? 'bg-[#16223b] border border-[#334155] text-white hover:border-[#38bdf8]'
+                      : 'bg-[#eaedff] text-[#131b2e] hover:bg-blue-100'
+                  }`}
+                >
+                  {tag}
+                </span>
+              ))}
+            </motion.div>
+
+            {/* Modal CTA Buttons */}
+            <div
+              className={`flex items-center justify-end gap-3 pt-4 border-t mt-auto ${
+                darkMode ? 'border-[#1e293b]' : 'border-slate-100'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={onClose}
+                className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
+                  darkMode
+                    ? 'text-[#cbd5e1] hover:bg-[#16223b]'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {lang === 'ID' ? 'Tutup' : 'Close'}
+              </button>
+              <a
+                href="#diskusi-proyek"
+                onClick={onClose}
+                className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs sm:text-sm font-bold shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+              >
+                <span>{lang === 'ID' ? 'Diskusikan Proyek Serupa' : 'Inquire Similar Project'}</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </a>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 };

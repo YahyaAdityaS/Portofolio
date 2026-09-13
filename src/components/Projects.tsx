@@ -52,7 +52,7 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
   };
 
   return (
-    <section className="w-full py-space-xl transition-colors duration-300" id="proyek-pilihan">
+    <section className="w-full py-space-xl transition-colors duration-300 scroll-mt-28" id="proyek-pilihan">
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-10">
         
         {/* Section Top Header */}

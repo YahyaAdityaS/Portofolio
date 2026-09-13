@@ -123,3 +123,48 @@
   direction: ltr;
   -webkit-font-smoothing: antialiased;
 }
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 5.5rem;
+}
+
+/* Professional Print Styles for CV Download/Print */
+@media print {
+  body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+  
+  /* Hide all elements except the printable CV */
+  header,
+  footer,
+  main,
+  nav,
+  .no-print,
+  #yas-cursor-follower,
+  #yas-cursor-orb {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  #yas-printable-cv,
+  #yas-printable-cv * {
+    visibility: visible !important;
+  }
+
+  #yas-printable-cv {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 24px !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+

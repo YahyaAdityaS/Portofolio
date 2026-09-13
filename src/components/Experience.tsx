@@ -50,7 +50,7 @@ export const Experience: React.FC<ExperienceProps> = ({ lang, darkMode }) => {
 
   return (
     <section
-      className={`w-full py-space-xl transition-colors duration-300 ${
+      className={`w-full py-space-xl transition-colors duration-300 scroll-mt-28 ${
         darkMode ? 'bg-[#0b1120] border-y border-[#1e293b]' : 'bg-[#f2f3ff]'
       }`}
       id="pengalaman"

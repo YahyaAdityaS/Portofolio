@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { InteractiveMap } from './InteractiveMap';
 
 interface ContactProps {
   lang: 'ID' | 'EN';
@@ -15,6 +16,26 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
 
   const [submitted, setSubmitted] = useState(false);
   const [copiedEmail, setCopiedEmail] = useState(false);
+  const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
+
+  const serviceOptions = [
+    {
+      value: 'fullstack',
+      label: 'Full-Stack Web Development (Next.js + Python)',
+    },
+    {
+      value: 'frontend',
+      label: 'Creative Frontend & Web Animation',
+    },
+    {
+      value: 'designsystem',
+      label: 'UI/UX Design & Figma Design System',
+    },
+    {
+      value: 'consult',
+      label: 'Konsultasi Arsitektur Perangkat Lunak',
+    },
+  ];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +54,7 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
 
   return (
     <section
-      className={`w-full py-space-xl transition-colors duration-300 ${
+      className={`w-full py-space-xl transition-colors duration-300 scroll-mt-28 ${
         darkMode ? 'bg-[#0b1120] border-t border-[#1e293b]' : 'bg-[#f2f3ff]'
       }`}
       id="diskusi-proyek"
@@ -211,38 +232,85 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
                   </div>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 relative">
                   <label
-                    htmlFor="contact-service"
+                    id="contact-service-label"
                     className={`text-xs sm:text-sm font-bold ${
                       darkMode ? 'text-white' : 'text-[#131b2e]'
                     }`}
                   >
                     {lang === 'ID' ? 'Kategori Kebutuhan' : 'Service Domain'}
                   </label>
-                  <select
-                    id="contact-service"
-                    value={formData.service}
-                    onChange={(e) => setFormData({ ...formData, service: e.target.value })}
-                    className={`px-4 py-3 rounded-full border text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#38bdf8] transition-all ${
+
+                  {/* Custom Trigger styled rounded panjang */}
+                  <button
+                    type="button"
+                    id="contact-service-trigger"
+                    aria-haspopup="listbox"
+                    aria-expanded={isServiceDropdownOpen}
+                    onClick={() => setIsServiceDropdownOpen(!isServiceDropdownOpen)}
+                    className={`w-full px-5 py-3 rounded-full border text-sm font-medium flex items-center justify-between text-left transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${
                       darkMode
                         ? 'bg-[#0d1527] border-[#334155] text-white'
                         : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white'
                     }`}
                   >
-                    <option value="fullstack" className={darkMode ? 'bg-[#0d1527] text-white' : ''}>
-                      Full-Stack Web Development (Next.js + Python)
-                    </option>
-                    <option value="frontend" className={darkMode ? 'bg-[#0d1527] text-white' : ''}>
-                      Creative Frontend & Web Animation
-                    </option>
-                    <option value="designsystem" className={darkMode ? 'bg-[#0d1527] text-white' : ''}>
-                      UI/UX Design & Figma Design System
-                    </option>
-                    <option value="consult" className={darkMode ? 'bg-[#0d1527] text-white' : ''}>
-                      Konsultasi Arsitektur Perangkat Lunak
-                    </option>
-                  </select>
+                    <span className="truncate pr-2">
+                      {serviceOptions.find((opt) => opt.value === formData.service)?.label || serviceOptions[0].label}
+                    </span>
+                    {/* Chevron right icon with comfortable margin from edge */}
+                    <span
+                      className={`material-symbols-outlined text-xl transition-transform duration-200 shrink-0 mr-1.5 ${
+                        isServiceDropdownOpen ? 'rotate-180' : ''
+                      } ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}
+                    >
+                      expand_more
+                    </span>
+                  </button>
+
+                  {/* Custom Dropdown Popover (Rounded Panjang options) */}
+                  {isServiceDropdownOpen && (
+                    <>
+                      {/* Click outside backdrop */}
+                      <div
+                        className="fixed inset-0 z-20 cursor-default"
+                        onClick={() => setIsServiceDropdownOpen(false)}
+                      />
+                      <div
+                        className={`absolute top-full left-0 right-0 mt-2 z-30 p-2 rounded-3xl border shadow-2xl backdrop-blur-xl flex flex-col gap-1.5 ${
+                          darkMode
+                            ? 'bg-[#0e172a]/95 border-[#23324f] shadow-black/70'
+                            : 'bg-white/95 border-slate-200 shadow-blue-500/10'
+                        }`}
+                      >
+                        {serviceOptions.map((option) => {
+                          const isSelected = formData.service === option.value;
+                          return (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => {
+                                setFormData({ ...formData, service: option.value });
+                                setIsServiceDropdownOpen(false);
+                              }}
+                              className={`w-full text-left px-4 py-2.5 rounded-full text-xs sm:text-sm font-semibold transition-all flex items-center justify-between cursor-pointer ${
+                                isSelected
+                                  ? 'bg-[#2563eb] text-white shadow-xs'
+                                  : darkMode
+                                  ? 'text-slate-200 hover:bg-[#1e293b] hover:text-white'
+                                  : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                              }`}
+                            >
+                              <span className="truncate">{option.label}</span>
+                              {isSelected && (
+                                <span className="material-symbols-outlined text-base shrink-0 ml-2">check</span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-1.5">
@@ -315,6 +383,11 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
             </div>
 
           </div>
+        </div>
+
+        {/* Interactive Map Component with Light/Dark Theme Switch */}
+        <div className="mt-10 sm:mt-14">
+          <InteractiveMap lang={lang} darkMode={darkMode} />
         </div>
 
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface NavbarProps {
   lang: 'ID' | 'EN';
@@ -9,89 +9,165 @@ interface NavbarProps {
 
 export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDarkMode }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>('tentang');
 
   const navLinks = [
-    { label: lang === 'ID' ? 'Tentang' : 'About', href: '#tentang' },
-    { label: lang === 'ID' ? 'Keahlian' : 'Skills', href: '#keahlian' },
-    { label: lang === 'ID' ? 'Proyek Pilihan' : 'Featured Projects', href: '#proyek-pilihan' },
-    { label: lang === 'ID' ? 'Pengalaman' : 'Experience', href: '#pengalaman' },
-    { label: lang === 'ID' ? 'Testimoni' : 'Testimonials', href: '#testimoni' },
+    { id: 'tentang', label: lang === 'ID' ? 'Tentang' : 'About', href: '#tentang' },
+    { id: 'keahlian', label: lang === 'ID' ? 'Keahlian' : 'Skills', href: '#keahlian' },
+    { id: 'proyek-pilihan', label: lang === 'ID' ? 'Proyek Pilihan' : 'Featured Projects', href: '#proyek-pilihan' },
+    { id: 'pengalaman', label: lang === 'ID' ? 'Pengalaman' : 'Experience', href: '#pengalaman' },
+    { id: 'testimoni', label: lang === 'ID' ? 'Testimoni & Rating' : 'Reviews & Rating', href: '#testimoni' },
   ];
 
+  // Detect scroll state and active section
+  useEffect(() => {
+    const handleScroll = () => {
+      // Check if page is scrolled down
+      if (window.scrollY > 25) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+
+      // Check active section based on scroll position
+      const scrollPosition = window.scrollY + 140; // offset for navbar height
+      const sections = ['tentang', 'keahlian', 'proyek-pilihan', 'pengalaman', 'testimoni', 'diskusi-proyek'];
+
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const element = document.getElementById(sections[i]);
+        if (element) {
+          const top = element.offsetTop;
+          if (scrollPosition >= top) {
+            setActiveSection(sections[i]);
+            break;
+          }
+        }
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll(); // Initial check
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Smooth scroll handler with proper offset
+  const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
+    e.preventDefault();
+    const element = document.getElementById(id);
+    if (element) {
+      const headerOffset = 90; // offset in px so it doesn't scroll too far down
+      const elementPosition = element.getBoundingClientRect().top;
+      const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
+
+      window.scrollTo({
+        top: offsetPosition,
+        behavior: 'smooth',
+      });
+      setActiveSection(id);
+      setMobileMenuOpen(false);
+    }
+  };
+
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 pt-4 pointer-events-none transition-colors duration-300">
-      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-10 pointer-events-auto">
+    <header className="fixed top-0 left-0 right-0 z-50 pt-3 sm:pt-4 pointer-events-none transition-all duration-300">
+      <div
+        className={`mx-auto px-3 sm:px-6 pointer-events-auto transition-all duration-500 ease-out ${
+          isScrolled ? 'max-w-[1140px]' : 'max-w-[1280px]'
+        }`}
+      >
         <div
-          className={`w-full backdrop-blur-md rounded-full px-4 py-2.5 shadow-lg flex items-center justify-between gap-4 transition-all duration-300 ${
-            darkMode
-              ? 'bg-[#0f172a]/90 border border-[#23324f]'
-              : 'bg-white/90 border border-slate-200/80'
+          className={`w-full backdrop-blur-xl rounded-full px-4 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-3 sm:gap-4 transition-all duration-500 ${
+            isScrolled
+              ? darkMode
+                ? 'bg-[#0b1120]/95 border border-[#334155] shadow-[0_12px_32px_rgba(0,0,0,0.55)]'
+                : 'bg-white/95 border border-slate-300/90 shadow-[0_12px_32px_rgba(37,99,235,0.09)]'
+              : darkMode
+              ? 'bg-[#0f172a]/85 border border-[#23324f]'
+              : 'bg-white/85 border border-slate-200/80 shadow-md'
           }`}
         >
           {/* Left: Brand + Available Badge */}
-          <div className="flex items-center gap-3">
-            <a className="flex items-center gap-2 group" href="#tentang">
+          <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
+            <a
+              className="flex items-center gap-2 group flex-shrink-0"
+              href="#tentang"
+              onClick={(e) => scrollToSection(e, 'tentang')}
+            >
               <div
-                className={`w-9 h-9 rounded-full flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform ${
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform ${
                   darkMode ? 'bg-[#2563eb]' : 'bg-primary'
                 }`}
               >
-                <span className="text-white font-bold text-sm tracking-tighter">Y</span>
+                <span className="text-white font-bold text-xs sm:text-sm tracking-tighter">Y</span>
               </div>
               <span
-                className={`font-bold text-base tracking-tight hidden sm:inline-block ${
+                className={`font-bold text-sm sm:text-base tracking-tight hidden sm:inline-block ${
                   darkMode ? 'text-white' : 'text-slate-900'
                 }`}
               >
-                YAS<span className="inline-block w-2 h-2 rounded-full bg-[#bef264] ml-0.5"></span>
+                YAS<span className="inline-block w-1.5 h-1.5 rounded-full bg-[#bef264] ml-0.5"></span>
               </span>
             </a>
 
+            {/* Badge Open to Work - Never wraps, single line, cleanly spaced */}
             <div
-              className={`hidden md:flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-sm ${
+              className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-xs whitespace-nowrap flex-shrink-0 ${
                 darkMode
-                  ? 'bg-[#bef264] text-[#080c16] border-[#a3e635]'
-                  : 'bg-[#c3f400] text-[#0f172a] border-[#a3e635]'
+                  ? 'bg-[#bef264]/15 text-[#bef264] border-[#bef264]/40'
+                  : 'bg-[#c3f400]/20 text-[#314100] border-[#a3e635]/70'
               }`}
             >
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#161e00] opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#161e00]"></span>
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#bef264] opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#bef264]"></span>
               </span>
-              <span className="font-bold text-[11px] uppercase tracking-wider text-[#080c16]">
-                {lang === 'ID' ? 'Available for Hire' : 'Open to Work'}
+              <span className="font-extrabold text-[10px] uppercase tracking-wider whitespace-nowrap">
+                {lang === 'ID' ? 'Open to Work' : 'Available'}
               </span>
             </div>
           </div>
 
-          {/* Center Navigation Links */}
+          {/* Center Navigation Links with Active State */}
           <nav
-            className={`hidden lg:flex items-center gap-1 p-1 rounded-full border transition-colors ${
+            className={`hidden lg:flex items-center gap-1 p-1 rounded-full border transition-all duration-300 flex-shrink-0 ${
               darkMode
-                ? 'bg-[#111a2e]/70 border-[#23324f]'
-                : 'bg-[#f2f3ff]/70 border-[#eaedff]'
+                ? 'bg-[#111a2e]/80 border-[#23324f]'
+                : 'bg-[#f2f3ff]/80 border-[#eaedff]'
             }`}
           >
-            {navLinks.map((link) => (
-              <a
-                key={link.href}
-                href={link.href}
-                className={`px-3.5 py-1.5 rounded-full transition-colors text-sm font-semibold ${
-                  darkMode
-                    ? 'text-[#cbd5e1] hover:text-[#38bdf8] hover:bg-[#16223b]'
-                    : 'text-slate-600 hover:text-primary hover:bg-white'
-                }`}
-              >
-                {link.label}
-              </a>
-            ))}
+            {navLinks.map((link) => {
+              const isActive = activeSection === link.id;
+              return (
+                <a
+                  key={link.id}
+                  href={link.href}
+                  onClick={(e) => scrollToSection(e, link.id)}
+                  className={`px-3.5 py-1.5 rounded-full transition-all duration-200 text-xs xl:text-sm font-bold relative whitespace-nowrap flex-shrink-0 ${
+                    isActive
+                      ? darkMode
+                        ? 'bg-[#2563eb] text-white shadow-sm'
+                        : 'bg-[#2563eb] text-white shadow-sm'
+                      : darkMode
+                      ? 'text-[#cbd5e1] hover:text-[#38bdf8] hover:bg-[#16223b]'
+                      : 'text-slate-600 hover:text-primary hover:bg-white'
+                  }`}
+                >
+                  {link.label}
+                  {isActive && (
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#bef264]"></span>
+                  )}
+                </a>
+              );
+            })}
           </nav>
 
-          {/* Right Action Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Right Action Controls - Guaranteed safety padding so button never touches pill edge */}
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
             {/* Language Toggle */}
             <div
-              className={`flex items-center p-1 rounded-full border text-xs font-bold transition-colors ${
+              className={`flex items-center p-0.5 rounded-full border text-[11px] font-bold transition-colors flex-shrink-0 ${
                 darkMode
                   ? 'bg-[#111a2e] border-[#23324f]'
                   : 'bg-[#f2f3ff] border-[#eaedff]'
@@ -99,116 +175,134 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
             >
               <button
                 type="button"
-                aria-label="Pilih Bahasa Indonesia"
                 onClick={() => setLang('ID')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                className={`px-2 py-1 rounded-full transition-all cursor-pointer ${
                   lang === 'ID'
                     ? darkMode
-                      ? 'bg-[#2563eb] text-white shadow-sm'
-                      : 'bg-white text-primary shadow-sm'
+                      ? 'bg-[#2563eb] text-white shadow-xs'
+                      : 'bg-white text-primary shadow-xs'
                     : darkMode
-                    ? 'text-[#cbd5e1] hover:text-white'
-                    : 'text-slate-500 hover:text-primary'
+                    ? 'text-[#94a3b8] hover:text-white'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <span className="text-xs leading-none">🇮🇩</span>
-                <span className="text-[11px]">ID</span>
+                ID
               </button>
               <button
                 type="button"
-                aria-label="Select English Language"
                 onClick={() => setLang('EN')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full transition-all cursor-pointer ${
+                className={`px-2 py-1 rounded-full transition-all cursor-pointer ${
                   lang === 'EN'
                     ? darkMode
-                      ? 'bg-[#2563eb] text-white shadow-sm'
-                      : 'bg-white text-primary shadow-sm'
+                      ? 'bg-[#2563eb] text-white shadow-xs'
+                      : 'bg-white text-primary shadow-xs'
                     : darkMode
-                    ? 'text-[#cbd5e1] hover:text-[#38bdf8]'
-                    : 'text-slate-500 hover:text-primary'
+                    ? 'text-[#94a3b8] hover:text-white'
+                    : 'text-slate-500 hover:text-slate-900'
                 }`}
               >
-                <span className="text-xs leading-none">🇬🇧</span>
-                <span className="text-[11px]">EN</span>
+                EN
               </button>
             </div>
 
-            {/* Dark/Light Toggle */}
+            {/* Dark Mode Toggle */}
             <button
               type="button"
-              aria-label="Toggle Light/Dark theme"
               onClick={() => setDarkMode(!darkMode)}
-              className={`flex items-center justify-center w-8 h-8 rounded-full border transition-all cursor-pointer ${
+              className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all cursor-pointer border flex-shrink-0 ${
                 darkMode
-                  ? 'bg-[#111a2e] text-[#bef264] hover:text-white hover:bg-[#1e293b] border-[#23324f]'
-                  : 'bg-[#f2f3ff] text-slate-800 hover:text-primary hover:bg-[#eaedff] border-[#eaedff]'
+                  ? 'bg-[#16223b] border-[#334155] text-[#bef264] hover:bg-[#1e293b]'
+                  : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-100 shadow-xs'
               }`}
               title={darkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
             >
-              <span className="material-symbols-outlined text-base">
-                {darkMode ? 'dark_mode' : 'light_mode'}
+              <span className="material-symbols-outlined text-base sm:text-lg">
+                {darkMode ? 'light_mode' : 'dark_mode'}
               </span>
             </button>
 
-            {/* CTA Button */}
+            {/* Direct Contact Button with strict flex-shrink-0 and comfortable inner margin */}
             <a
               href="#diskusi-proyek"
-              className="inline-flex items-center justify-center bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold px-4 py-2 rounded-full shadow-sm hover:-translate-y-0.5 active:translate-y-0 transition-all text-xs sm:text-sm"
+              onClick={(e) => scrollToSection(e, 'diskusi-proyek')}
+              className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-xs transition-all flex-shrink-0 shadow-xs hover:shadow-sm ${
+                darkMode
+                  ? 'bg-[#bef264] hover:bg-[#a3e635] text-[#080c16]'
+                  : 'bg-[#2563eb] hover:bg-[#1d4ed8] text-white'
+              }`}
             >
-              {lang === 'ID' ? 'Diskusi Proyek' : 'Discuss Project'}
+              <span className="whitespace-nowrap">{lang === 'ID' ? 'Kontak' : 'Contact'}</span>
+              <span className="material-symbols-outlined text-sm shrink-0">arrow_forward</span>
             </a>
 
-            {/* Avatar Pill */}
-            <div className="flex items-center pl-0.5">
-              <img
-                src="https://lh3.googleusercontent.com/aida/AEtjO1X_8adeO16jpWavl99sgxtG0OpP9YJk8gdMedOwnqKtTv6B-lSGomwAO4Zh0izPtL_Yrf3Y4fIJi3ccXJwX-E4EWmRFSpqel9790et7iWvEhFU_zVnebEeGJuU5GEMfSE34DohzVCSOo4bBreA9X4v1PVTo6OKQUu_tAhP-tw0NAgozUs-xjnyz2A6E2jHwGIVFtUmO07ULgogFfULOJ4WnnkK1sXyWiyWQisskbKxlU57gqKfMsBI8NxQ"
-                alt="Yahya Aditya Saputra"
-                className={`w-8 h-8 rounded-full object-cover ring-2 ${
-                  darkMode ? 'ring-[#38bdf8]/50' : 'ring-[#dce1ff]'
-                }`}
-                referrerPolicy="no-referrer"
-              />
-            </div>
-
-            {/* Mobile Hamburger toggle */}
+            {/* Mobile Menu Button */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className={`lg:hidden p-1.5 rounded-full ${
-                darkMode ? 'text-white hover:bg-slate-800' : 'text-slate-700 hover:bg-slate-100'
+              className={`lg:hidden w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-colors cursor-pointer border flex-shrink-0 ${
+                darkMode
+                  ? 'bg-[#111a2e] border-[#23324f] text-white'
+                  : 'bg-white border-slate-200 text-slate-700'
               }`}
-              aria-label="Toggle menu"
             >
-              <span className="material-symbols-outlined text-xl">
+              <span className="material-symbols-outlined text-lg">
                 {mobileMenuOpen ? 'close' : 'menu'}
               </span>
             </button>
           </div>
         </div>
 
-        {/* Mobile menu dropdown */}
+        {/* Mobile Dropdown Menu with distinct color hierarchy */}
         {mobileMenuOpen && (
           <div
-            className={`lg:hidden mt-2 backdrop-blur-md rounded-2xl p-4 shadow-xl flex flex-col gap-2 border ${
+            className={`lg:hidden mt-2 p-4 rounded-3xl border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 ${
               darkMode
                 ? 'bg-[#0f172a]/95 border-[#23324f]'
-                : 'bg-white/95 border-slate-200'
+                : 'bg-white/95 border-slate-200 shadow-[0_15px_40px_rgba(0,0,0,0.1)]'
             }`}
           >
-            {navLinks.map((link) => (
+            <div className="flex flex-col gap-1.5">
+              {navLinks.map((link) => {
+                const isActive = activeSection === link.id;
+                return (
+                  <a
+                    key={link.id}
+                    href={link.href}
+                    onClick={(e) => scrollToSection(e, link.id)}
+                    className={`px-4 py-3 rounded-2xl font-bold text-sm transition-all flex items-center justify-between ${
+                      isActive
+                        ? darkMode
+                          ? 'bg-[#2563eb] text-white shadow-sm'
+                          : 'bg-[#bef264] text-[#131b2e] border border-[#a3e635] shadow-xs'
+                        : darkMode
+                        ? 'text-[#cbd5e1] hover:bg-[#16223b]'
+                        : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span>{link.label}</span>
+                    {isActive && (
+                      <span className={`material-symbols-outlined text-base ${darkMode ? 'text-white' : 'text-[#131b2e]'}`}>
+                        check
+                      </span>
+                    )}
+                  </a>
+                );
+              })}
+              
+              {/* Bottom CTA Button: Distinct and never conflicts with active tab */}
               <a
-                key={link.href}
-                href={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors ${
+                href="#diskusi-proyek"
+                onClick={(e) => scrollToSection(e, 'diskusi-proyek')}
+                className={`mt-2.5 px-4 py-3 rounded-2xl font-bold text-sm text-center transition-all shadow-md flex items-center justify-center gap-2 ${
                   darkMode
-                    ? 'text-[#cbd5e1] hover:bg-[#16223b] hover:text-[#38bdf8]'
-                    : 'text-slate-800 hover:bg-blue-50 hover:text-primary'
+                    ? 'bg-[#bef264] hover:bg-[#a3e635] text-[#080c16]'
+                    : 'bg-[#2563eb] hover:bg-[#1d4ed8] text-white'
                 }`}
               >
-                {link.label}
+                <span>{lang === 'ID' ? 'Mulai Diskusi Proyek' : 'Start Project Inquiry'}</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
               </a>
-            ))}
+            </div>
           </div>
         )}
       </div>

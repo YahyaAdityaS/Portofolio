@@ -3,11 +3,12 @@ import React from 'react';
 interface HeroProps {
   lang: 'ID' | 'EN';
   darkMode: boolean;
+  onOpenCV?: () => void;
 }
 
-export const Hero: React.FC<HeroProps> = ({ lang, darkMode }) => {
+export const Hero: React.FC<HeroProps> = ({ lang, darkMode, onOpenCV }) => {
   return (
-    <section className="relative overflow-hidden w-full pb-space-xl pt-space-lg transition-colors duration-300" id="tentang">
+    <section className="relative overflow-hidden w-full pb-space-xl pt-space-lg transition-colors duration-300 scroll-mt-28" id="tentang">
       {/* Fluid background glow orbs */}
       <div
         className={`absolute top-10 left-1/2 -translate-x-1/2 w-[720px] h-[520px] rounded-full blur-[140px] pointer-events-none transition-colors duration-500 ${
@@ -120,9 +121,10 @@ export const Hero: React.FC<HeroProps> = ({ lang, darkMode }) => {
                 </span>
               </a>
 
-              <a
-                href="#diskusi-proyek"
-                className={`inline-flex items-center justify-center gap-2 border-2 px-6 py-3 rounded-full shadow-sm transition-colors font-bold ${
+              <button
+                type="button"
+                onClick={onOpenCV}
+                className={`inline-flex items-center justify-center gap-2 border-2 px-6 py-3 rounded-full shadow-sm transition-all font-bold cursor-pointer hover:-translate-y-0.5 active:translate-y-0 ${
                   darkMode
                     ? 'bg-[#0d1527] text-[#38bdf8] border-[#38bdf8] hover:bg-[#16223b] hover:text-white'
                     : 'bg-white text-[#1d4ed8] border-[#1d4ed8] hover:bg-blue-50'
@@ -136,7 +138,7 @@ export const Hero: React.FC<HeroProps> = ({ lang, darkMode }) => {
                   download
                 </span>
                 <span>{lang === 'ID' ? 'Unduh CV • PDF' : 'Download CV • PDF'}</span>
-              </a>
+              </button>
 
               <div
                 className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-[11px] font-bold transition-colors ${
@@ -247,11 +249,11 @@ export const Hero: React.FC<HeroProps> = ({ lang, darkMode }) => {
 
           </div>
 
-          {/* Right Hero Bento Visual Card (5 cols) */}
-          <div className="lg:col-span-5 relative">
+          {/* Right Hero Bento Visual Card (5 cols - sized down 10% to 90%) */}
+          <div className="lg:col-span-5 relative flex justify-center lg:justify-end">
             {/* Background geometric highlight card */}
             <div
-              className={`relative border rounded-3xl p-4 shadow-xl overflow-hidden group transition-colors duration-300 ${
+              className={`relative border rounded-3xl p-4 shadow-xl overflow-hidden group transition-all duration-300 w-full max-w-[90%] ${
                 darkMode
                   ? 'bg-[#111a2e] border-[#23324f]'
                   : 'bg-white border-[#eaedff]'

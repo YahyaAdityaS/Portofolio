@@ -230,20 +230,43 @@ export const StatsAndBio: React.FC<StatsAndBioProps> = ({ lang, darkMode }) => {
               
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-2">
                 {[
-                  'Modular Design System',
-                  'Semantic HTML & A11y',
-                  'Type Safety First',
-                  'Micro-Interactions',
+                  {
+                    name: 'Modular Design System',
+                    icon: 'grid_view',
+                    light: 'bg-sky-50 text-sky-800 border-sky-200 hover:bg-sky-100 hover:border-sky-300',
+                    dark: 'bg-sky-950/50 text-sky-300 border-sky-800 hover:bg-sky-900/50 hover:border-sky-600',
+                    dot: 'bg-[#38bdf8]',
+                  },
+                  {
+                    name: 'Semantic HTML & A11y',
+                    icon: 'accessibility_new',
+                    light: 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300',
+                    dark: 'bg-emerald-950/50 text-[#bef264] border-emerald-800/80 hover:bg-emerald-900/50 hover:border-emerald-600',
+                    dot: 'bg-[#bef264]',
+                  },
+                  {
+                    name: 'Type Safety First',
+                    icon: 'code_blocks',
+                    light: 'bg-purple-50 text-purple-800 border-purple-200 hover:bg-purple-100 hover:border-purple-300',
+                    dark: 'bg-purple-950/50 text-purple-300 border-purple-800 hover:bg-purple-900/50 hover:border-purple-600',
+                    dot: 'bg-[#c084fc]',
+                  },
+                  {
+                    name: 'Micro-Interactions',
+                    icon: 'touch_app',
+                    light: 'bg-amber-50 text-amber-900 border-amber-200 hover:bg-amber-100 hover:border-amber-300',
+                    dark: 'bg-amber-950/50 text-amber-300 border-amber-800 hover:bg-amber-900/50 hover:border-amber-600',
+                    dot: 'bg-[#f59e0b]',
+                  },
                 ].map((item) => (
                   <div
-                    key={item}
-                    className={`text-xs px-3.5 py-2 rounded-full font-semibold text-center transition-colors ${
-                      darkMode
-                        ? 'bg-[#16223b] text-white border border-[#334155]'
-                        : 'bg-[#f2f3ff] text-[#131b2e]'
+                    key={item.name}
+                    className={`text-xs px-3 py-2 rounded-full font-bold text-center transition-all flex items-center justify-center gap-1.5 border shadow-xs hover:-translate-y-0.5 ${
+                      darkMode ? item.dark : item.light
                     }`}
                   >
-                    {item}
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${item.dot}`}></span>
+                    <span className="truncate">{item.name}</span>
                   </div>
                 ))}
               </div>
