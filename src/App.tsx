@@ -18,12 +18,42 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { ProjectItem } from './data/portfolioData';
 
 export default function App() {
-  const [lang, setLang] = useState<'ID' | 'EN'>('ID');
-  const [darkMode, setDarkMode] = useState<boolean>(false);
-  // Only show initial loading screen on fresh visit; skip on refresh if already loaded
+  const [lang, setLang] = useState<'ID' | 'EN'>(() => {
+    try {
+      const savedLang = localStorage.getItem('yas_portfolio_lang');
+      if (savedLang === 'ID' || savedLang === 'EN') {
+        return savedLang;
+      }
+    } catch {
+      // Fallback if localStorage is unavailable
+    }
+    return 'ID';
+  });
+
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    try {
+      const savedTheme = localStorage.getItem('yas_portfolio_theme');
+      if (savedTheme !== null) {
+        return savedTheme === 'dark';
+      }
+    } catch {
+      // Fallback if localStorage is unavailable
+    }
+    return false;
+  });
+  // Show initial loading screen on first time visit or if last visit was >= 2 days ago (48 hours)
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     try {
-      return !sessionStorage.getItem('yas_portfolio_loaded');
+      const lastVisit = localStorage.getItem('yas_portfolio_last_visit');
+      if (!lastVisit) {
+        // First time opening the portfolio -> show loading screen
+        return true;
+      }
+      const lastVisitTime = parseInt(lastVisit, 10);
+      const now = Date.now();
+      const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000; // 48 hours in milliseconds
+      // If last visit was >= 2 days ago, show loading screen; otherwise skip directly to landing
+      return now - lastVisitTime >= TWO_DAYS_MS;
     } catch {
       return false;
     }
@@ -33,6 +63,20 @@ export default function App() {
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
 
   useEffect(() => {
+    try {
+      localStorage.setItem('yas_portfolio_lang', lang);
+    } catch {
+      // Ignore in strict private mode
+    }
+    document.documentElement.lang = lang === 'ID' ? 'id' : 'en';
+  }, [lang]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('yas_portfolio_theme', darkMode ? 'dark' : 'light');
+    } catch {
+      // Ignore in strict private mode
+    }
     if (darkMode) {
       document.documentElement.classList.add('dark');
     } else {
@@ -42,7 +86,7 @@ export default function App() {
 
   const handleLoadingComplete = () => {
     try {
-      sessionStorage.setItem('yas_portfolio_loaded', 'true');
+      localStorage.setItem('yas_portfolio_last_visit', Date.now().toString());
     } catch (e) {
       // Ignore in strict private mode
     }
@@ -71,13 +115,15 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Fixed Floating Header - mounted outside motion.div so position:fixed is anchored to viewport and floats when scrolling */}
-      <Navbar
-        lang={lang}
-        setLang={setLang}
-        darkMode={darkMode}
-        setDarkMode={setDarkMode}
-      />
+      {/* Fixed Floating Header - only rendered when loading is complete */}
+      {!isLoading && (
+        <Navbar
+          lang={lang}
+          setLang={setLang}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
+        />
+      )}
 
       {/* Main Page Container with Clean Transition */}
       <motion.div

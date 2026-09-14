@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { motion } from 'motion/react';
 
 interface NavbarProps {
   lang: 'ID' | 'EN';
@@ -95,7 +96,8 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
               href="#tentang"
               onClick={(e) => scrollToSection(e, 'tentang')}
             >
-              <div
+              <img src="/public/images/logo.png" alt="Logo" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full" />
+              {/* <div
                 className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform ${
                   darkMode ? 'bg-[#2563eb]' : 'bg-primary'
                 }`}
@@ -108,7 +110,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
                 }`}
               >
                 YAS<span className="inline-block w-1.5 h-1.5 rounded-full bg-[#bef264] ml-0.5"></span>
-              </span>
+              </span> */}
             </a>
 
             {/* Badge Open to Work - Never wraps, single line, cleanly spaced */}
@@ -131,7 +133,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
 
           {/* Center Navigation Links with Active State */}
           <nav
-            className={`hidden lg:flex items-center gap-1 p-1 rounded-full border transition-all duration-300 flex-shrink-0 ${
+            className={`hidden lg:flex items-center gap-1 p-1 rounded-full border transition-all duration-300 flex-shrink-0 relative ${
               darkMode
                 ? 'bg-[#111a2e]/80 border-[#23324f]'
                 : 'bg-[#f2f3ff]/80 border-[#eaedff]'
@@ -144,19 +146,37 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
                   key={link.id}
                   href={link.href}
                   onClick={(e) => scrollToSection(e, link.id)}
-                  className={`px-3.5 py-1.5 rounded-full transition-all duration-200 text-xs xl:text-sm font-bold relative whitespace-nowrap flex-shrink-0 ${
+                  className={`px-3.5 py-1.5 rounded-full text-xs xl:text-sm font-bold relative whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
                     isActive
-                      ? darkMode
-                        ? 'bg-[#2563eb] text-white shadow-sm'
-                        : 'bg-[#2563eb] text-white shadow-sm'
+                      ? 'text-white'
                       : darkMode
-                      ? 'text-[#cbd5e1] hover:text-[#38bdf8] hover:bg-[#16223b]'
-                      : 'text-slate-600 hover:text-primary hover:bg-white'
+                      ? 'text-[#cbd5e1] hover:text-[#38bdf8] hover:bg-[#16223b]/50'
+                      : 'text-slate-600 hover:text-primary hover:bg-white/60'
                   }`}
                 >
-                  {link.label}
                   {isActive && (
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#bef264]"></span>
+                    <motion.div
+                      layoutId="activeNavbarIndicator"
+                      className="absolute inset-0 rounded-full bg-[#2563eb] shadow-sm"
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 32,
+                        mass: 0.8,
+                      }}
+                    />
+                  )}
+                  <span className="relative z-10">{link.label}</span>
+                  {isActive && (
+                    <motion.span
+                      layoutId="activeNavbarDot"
+                      className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-[#bef264] z-20"
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 32,
+                      }}
+                    />
                   )}
                 </a>
               );

@@ -201,7 +201,7 @@ export const InteractiveMap: React.FC<InteractiveMapProps> = ({ lang, darkMode }
 
         {/* Theme Mode Indicator Badge on Map Corner */}
         <div
-          className={`absolute top-4 right-4 px-3 py-1.5 rounded-full text-[10px] font-mono font-bold tracking-wider backdrop-blur-md border shadow-sm ${
+          className={`absolute top-5 left-5 px-3 py-1.5 rounded-full text-[7px] font-mono font-bold tracking-wider backdrop-blur-md border shadow-sm ${
             darkMode
               ? 'bg-[#0b1120]/85 border-[#334155] text-[#38bdf8]'
               : 'bg-white/85 border-slate-200 text-slate-700'

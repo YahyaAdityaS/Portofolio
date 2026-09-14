@@ -98,19 +98,19 @@ export const Footer: React.FC<FooterProps> = ({ lang, darkMode, onOpenAdmin }) =
           </div>
 
           <div className="flex items-center gap-space-md">
-            {['GitHub', 'LinkedIn', 'Instagram', 'Dribbble'].map((net) => (
+            {[{ name: 'GitHub', url: 'https://github.com/YahyaAdityaS' }, { name: 'LinkedIn', url: 'https://linkedin.com/in/yahyadityas' }, { name: 'Instagram', url: 'https://www.instagram.com/yahyaditya.s/' }, { name: 'Dribbble', url: 'https://dribbble.com/Putra204247T' }].map((net) => (
               <a
-                key={net}
-                href={`https://${net.toLowerCase()}.com`}
+                key={net.name}
+                href={net.url}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className={`text-sm font-bold transition-colors ${
                   darkMode
                     ? 'text-[#cbd5e1] hover:text-[#bef264]'
                     : 'text-[#434655] hover:text-primary'
                 }`}
               >
-                {net}
+                {net.name}
               </a>
             ))}
           </div>

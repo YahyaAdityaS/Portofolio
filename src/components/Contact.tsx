@@ -125,7 +125,7 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
                           {lang === 'ID' ? 'Email Langsung' : 'Direct Email'}
                         </div>
                         <div className={`text-sm sm:text-base font-semibold ${darkMode ? 'text-white' : 'text-[#131b2e]'}`}>
-                          yahya@aditya.dev
+                          yahyaditya.s@gmail.com
                         </div>
                       </div>
                     </div>

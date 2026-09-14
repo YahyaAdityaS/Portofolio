@@ -558,6 +558,7 @@ function responseJSON(payload, statusCode) {
                         type="button"
                         onClick={() => {
                           onClose();
+                          window.scrollTo({ top: 0, behavior: 'instant' });
                           onReplayLoading();
                         }}
                         className={`text-xs font-bold flex items-center gap-1.5 cursor-pointer px-3.5 py-2 rounded-xl transition-colors border ${

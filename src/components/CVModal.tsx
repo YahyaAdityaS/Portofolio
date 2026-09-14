@@ -8,6 +8,8 @@ interface CVModalProps {
   darkMode: boolean;
 }
 
+const DEFAULT_DRIVE_URL = 'https://drive.google.com/file/d/1xU38b_UvKgHfeDKC8QJc8fHj2XPvZqtI/view?usp=sharing';
+
 // Helper to extract Google Drive File ID from standard sharing URLs
 function extractDriveFileId(url: string): string {
   if (!url) return '';
@@ -22,12 +24,7 @@ function extractDriveFileId(url: string): string {
 
 export const CVModal: React.FC<CVModalProps> = ({ isOpen, onClose, lang, darkMode }) => {
   // Configurable Google Drive CV URL (stored persistently in localStorage)
-  const [driveInput, setDriveInput] = useState(() => {
-    return (
-      localStorage.getItem('yas_cv_drive_url') ||
-      'https://drive.google.com/file/d/1_Yahya_Aditya_Saputra_CV_Software_Engineer_2026/view?usp=sharing'
-    );
-  });
+  const [driveInput, setDriveInput] = useState(DEFAULT_DRIVE_URL);
 
   const [isSettingUrl, setIsSettingUrl] = useState(false);
   const [iframeLoaded, setIframeLoaded] = useState(false);
@@ -40,10 +37,6 @@ export const CVModal: React.FC<CVModalProps> = ({ isOpen, onClose, lang, darkMod
   const downloadUrl = fileId
     ? `https://drive.google.com/uc?export=download&id=${fileId}`
     : driveInput;
-
-  useEffect(() => {
-    localStorage.setItem('yas_cv_drive_url', driveInput);
-  }, [driveInput]);
 
   if (!isOpen) return null;
 

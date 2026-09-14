@@ -281,7 +281,7 @@ export const Hero: React.FC<HeroProps> = ({ lang, darkMode, onOpenCV }) => {
                       : 'bg-slate-100 text-slate-600'
                   }`}
                 >
-                  yahya-aditya.dev
+                  yahyaditya-s.dev
                 </span>
               </div>
 
@@ -294,7 +294,7 @@ export const Hero: React.FC<HeroProps> = ({ lang, darkMode, onOpenCV }) => {
                 }`}
               >
                 <img
-                  src="https://lh3.googleusercontent.com/aida/AEtjO1X_8adeO16jpWavl99sgxtG0OpP9YJk8gdMedOwnqKtTv6B-lSGomwAO4Zh0izPtL_Yrf3Y4fIJi3ccXJwX-E4EWmRFSpqel9790et7iWvEhFU_zVnebEeGJuU5GEMfSE34DohzVCSOo4bBreA9X4v1PVTo6OKQUu_tAhP-tw0NAgozUs-xjnyz2A6E2jHwGIVFtUmO07ULgogFfULOJ4WnnkK1sXyWiyWQisskbKxlU57gqKfMsBI8NxQ"
+                  src="/public/images/yahyadityas.webp"
                   alt="Yahya Aditya Saputra"
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
@@ -375,7 +375,7 @@ export const Hero: React.FC<HeroProps> = ({ lang, darkMode, onOpenCV }) => {
               <span className="material-symbols-outlined text-base text-[#1e1b4b]">
                 verified
               </span>
-              <span className="text-[#1e1b4b]">Telkom Malang Alum</span>
+              <span className="text-[#1e1b4b]">SMK Telkom Malang</span>
             </div>
           </div>
 
