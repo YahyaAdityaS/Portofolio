@@ -67,8 +67,8 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [modToast, setModToast] = useState('');
   const [copiedScript, setCopiedScript] = useState(false);
 
-  // Load reviews from localStorage
-  const refreshReviews = () => {
+  // Load reviews from localStorage & spreadsheet
+  const refreshReviews = async () => {
     const saved = localStorage.getItem('yas_portfolio_reviews');
     if (saved) {
       try {
@@ -76,6 +76,34 @@ export const AdminModal: React.FC<AdminModalProps> = ({
       } catch {
         setReviews([]);
       }
+    }
+
+    const REVIEWS_SCRIPT_URL =
+      localStorage.getItem('yas_reviews_webhook_url') ||
+      'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
+
+    try {
+      const res = await fetch(REVIEWS_SCRIPT_URL);
+      const data = await res.json();
+      if (data && Array.isArray(data.ratings) && data.ratings.length > 0) {
+        const mapped: TestimonialItem[] = data.ratings.map((r: any, idx: number) => ({
+          id: r.id || `sheet-rev-${idx}`,
+          author: r.author || r.name || 'Anonim',
+          role: r.role || (lang === 'ID' ? 'Pengunjung Web' : 'Web Visitor'),
+          stars: Number(r.stars || r.rating) || 5,
+          quote: r.quote || r.message || '',
+          avatar: (r.author || 'US').slice(0, 2).toUpperCase(),
+          avatarBg: 'bg-[#2563eb]',
+          avatarText: 'text-white',
+          approved: r.approved === true || String(r.approved).toUpperCase() === 'TRUE',
+          timestamp: r.timestamp || '',
+        }));
+
+        setReviews(mapped);
+        localStorage.setItem('yas_portfolio_reviews', JSON.stringify(mapped));
+      }
+    } catch {
+      // offline fallback
     }
   };
 
@@ -91,10 +119,117 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     localStorage.setItem('yas_sheet_webhook_url', url);
   };
 
+  const [scriptTabType, setScriptTabType] = useState<'reviews' | 'all'>('reviews');
+
+  // Khusus Script reviews.gs untuk Write Review & Rating ke sheet "Rating"
+  const reviewsScriptCode = `// =============================================================================
+// BACKEND WRITE REVIEW & RATING (reviews.gs)
+// Database: Google Spreadsheet -> Tab: "Rating"
+// =============================================================================
+
+function doGet(e) {
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName("Rating") || ss.getActiveSheet();
+    var rows = sheet.getDataRange().getValues();
+    var ratings = [];
+    
+    // Baris 1 adalah header, data ulasan mulai dari baris 2 (index 1)
+    for (var i = 1; i < rows.length; i++) {
+      var row = rows[i];
+      if (row[1] || row[4]) {
+        ratings.push({
+          id: "rev-" + i,
+          timestamp: row[0] ? Utilities.formatDate(new Date(row[0]), "Asia/Jakarta", "dd/MM/yyyy HH:mm") : "",
+          author: String(row[1] || "Anonim"),
+          role: String(row[2] || "Pengunjung"),
+          stars: Number(row[3]) || 5,
+          quote: String(row[4] || ""),
+          approved: String(row[5]).toUpperCase() === "TRUE"
+        });
+      }
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      ratings: ratings
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var sheet = ss.getSheetByName("Rating") || ss.insertSheet("Rating");
+
+    // Jika sheet masih baru atau baris 1 kosong, buat otomatis header kolom
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow([
+        "Timestamp",
+        "Nama Lengkap",
+        "Peran / Hubungan",
+        "Rating (Bintang)",
+        "Saran & Masukan",
+        "Approved"
+      ]);
+    }
+
+    var data = {};
+    if (e.postData && e.postData.contents) {
+      try {
+        data = JSON.parse(e.postData.contents);
+      } catch (err) {
+        data = e.parameter || {};
+      }
+    } else if (e.parameter) {
+      data = e.parameter;
+    }
+
+    // Ambil data kiriman ulasan & rating pengunjung
+    var timestamp = new Date();
+    var name = data.name || data.nama || data.author || "Anonim";
+    var role = data.role || data.instansi || "Pengunjung Web";
+    var rating = Number(data.rating || data.stars) || 5;
+    var message = data.message || data.saran || data.quote || "";
+    var approved = (data.approved === true || data.approved === "TRUE") ? "TRUE" : "FALSE";
+
+    // Simpan baris baru ke Sheet Rating
+    sheet.appendRow([
+      timestamp,
+      name,
+      role,
+      rating,
+      message,
+      approved
+    ]);
+
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      message: "Review dan rating berhasil disimpan ke sheet Rating!"
+    })).setMimeType(ContentService.MimeType.JSON);
+
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "error",
+      message: error.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    lock.releaseLock();
+  }
+}`;
+
   // Google Apps Script Complete Backend Code Template
   const googleAppsScriptCode = `// =============================================================================
 // BACKEND GOOGLE APPS SCRIPT - PORTOFOLIO YAHYA ADITYA SAPUTRA
-// Sheet 1: Projects | Sheet 2: Sheet1 / Contacts
+// Sheet 1: Projects | Sheet 2: Rating | Sheet 3: Contacts
 // =============================================================================
 
 var ADMIN_SECRET = "Putra204247T"; // Ganti dengan kata sandi yang Anda inginkan
@@ -102,34 +237,56 @@ var ADMIN_SECRET = "Putra204247T"; // Ganti dengan kata sandi yang Anda inginkan
 function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
-    var sheet = ss.getSheetByName("Projects");
-    if (!sheet) {
-      return ContentService.createTextOutput(JSON.stringify({ projects: [] }))
-        .setMimeType(ContentService.MimeType.JSON);
-    }
-    
-    var rows = sheet.getDataRange().getValues();
+
+    // 1. DATA PROJECTS (Sheet: Projects)
+    var projectSheet = ss.getSheetByName("Projects");
     var projects = [];
-    
-    // Baris pertama (index 0) adalah header
-    for (var i = 1; i < rows.length; i++) {
-      var row = rows[i];
-      if (row[0]) { // jika ada id
-        projects.push({
-          id: String(row[0]),
-          title: String(row[1] || ""),
-          desc: String(row[2] || ""),
-          tags: row[3] ? String(row[3]).split(",").map(function(t){ return t.trim(); }) : [],
-          image: String(row[4] || ""),
-          github: String(row[5] || ""),
-          demo: String(row[6] || ""),
-          category: String(row[7] || "fullstack")
-        });
+    if (projectSheet) {
+      var rows = projectSheet.getDataRange().getValues();
+      for (var i = 1; i < rows.length; i++) {
+        var row = rows[i];
+        if (row[0]) {
+          projects.push({
+            id: String(row[0]),
+            title: String(row[1] || ""),
+            desc: String(row[2] || ""),
+            tags: row[3] ? String(row[3]).split(",").map(function(t){ return t.trim(); }) : [],
+            image: String(row[4] || ""),
+            github: String(row[5] || ""),
+            demo: String(row[6] || ""),
+            category: String(row[7] || "fullstack")
+          });
+        }
+      }
+    }
+
+    // 2. DATA RATING & TESTIMONI (Sheet: Rating)
+    var ratingSheet = ss.getSheetByName("Rating") || ss.getSheetByName("Testimonials");
+    var ratings = [];
+    if (ratingSheet) {
+      var rRows = ratingSheet.getDataRange().getValues();
+      for (var j = 1; j < rRows.length; j++) {
+        var r = rRows[j];
+        if (r[1] || r[4]) {
+          ratings.push({
+            id: "rev-" + j,
+            timestamp: r[0] ? Utilities.formatDate(new Date(r[0]), "Asia/Jakarta", "dd/MM/yyyy HH:mm") : "",
+            author: String(r[1] || "Anonim"),
+            role: String(r[2] || "Pengunjung Web"),
+            stars: Number(r[3]) || 5,
+            quote: String(r[4] || ""),
+            approved: String(r[5]).toUpperCase() === "TRUE"
+          });
+        }
       }
     }
     
-    return ContentService.createTextOutput(JSON.stringify({ projects: projects }))
-      .setMimeType(ContentService.MimeType.JSON);
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      projects: projects,
+      ratings: ratings
+    })).setMimeType(ContentService.MimeType.JSON);
+
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({ error: err.toString() }))
       .setMimeType(ContentService.MimeType.JSON);
@@ -141,26 +298,37 @@ function doPost(e) {
   lock.tryLock(10000);
 
   try {
-    var data = JSON.parse(e.postData.contents);
+    var data = {};
+    if (e.postData && e.postData.contents) {
+      try {
+        data = JSON.parse(e.postData.contents);
+      } catch (err) {
+        data = e.parameter || {};
+      }
+    } else if (e.parameter) {
+      data = e.parameter;
+    }
+
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
-    // 1. JIKA INI AKSI DARI ADMIN (TAMBAH / EDIT / HAPUS PORTOFOLIO)
-    if (data.action) {
+    // -------------------------------------------------------------
+    // 1. AKSI ADMIN (SINKRONISASI PROYEK, LOGIN, SETUJUI RATING)
+    // -------------------------------------------------------------
+    if (data.action === "sync_projects" || data.action === "verify" || data.action === "approve_rating") {
       if (data.secret !== ADMIN_SECRET) {
         return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "Kata sandi salah!" }))
           .setMimeType(ContentService.MimeType.JSON);
       }
 
-      var projectSheet = ss.getSheetByName("Projects") || ss.insertSheet("Projects");
-      
-      // Jika aksi validasi login
+      // Validasi Login
       if (data.action === "verify") {
         return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
           .setMimeType(ContentService.MimeType.JSON);
       }
 
-      // Jika aksi simpan atau update seluruh daftar project
+      // Simpan Proyek ke Sheet Projects
       if (data.action === "sync_projects" && Array.isArray(data.projects)) {
+        var projectSheet = ss.getSheetByName("Projects") || ss.insertSheet("Projects");
         projectSheet.clearContents();
         projectSheet.appendRow(["id", "title", "desc", "tags", "image", "github", "demo", "category"]);
         
@@ -180,9 +348,58 @@ function doPost(e) {
         return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Portofolio tersimpan!" }))
           .setMimeType(ContentService.MimeType.JSON);
       }
+
+      // Setujui Rating di Sheet Rating
+      if (data.action === "approve_rating") {
+        var rSheet = ss.getSheetByName("Rating") || ss.getSheetByName("Testimonials");
+        if (rSheet) {
+          var values = rSheet.getDataRange().getValues();
+          for (var k = 1; k < values.length; k++) {
+            if (values[k][1] === data.author || values[k][4] === data.quote) {
+              rSheet.getRange(k + 1, 6).setValue("TRUE");
+              break;
+            }
+          }
+        }
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Rating disetujui!" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
     }
 
-    // 2. JIKA INI PESAN DARI FORM KONTAK PENGUNJUNG
+    // -------------------------------------------------------------
+    // 2. KIRIM RATING & MASUKAN (Sheet: Rating) - PUBLIK (TANPA SANDI)
+    // -------------------------------------------------------------
+    if (data.action === "submit_rating" || data.type === "rating" || (data.rating && !data.email)) {
+      var ratingSheet = ss.getSheetByName("Rating") || ss.getSheetByName("Testimonials") || ss.insertSheet("Rating");
+      
+      // Jika sheet masih kosong, buat baris header
+      if (ratingSheet.getLastRow() === 0) {
+        ratingSheet.appendRow(["timestamp", "name", "role", "rating", "message", "approved"]);
+      }
+
+      var timestamp = new Date();
+      var name = data.name || data.nama || data.author || "Anonim";
+      var role = data.role || data.instansi || "Pengunjung Web";
+      var ratingVal = Number(data.rating || data.stars) || 5;
+      var message = data.message || data.saran || data.quote || "";
+      var approved = (data.approved === true || data.approved === "TRUE") ? "TRUE" : "FALSE";
+
+      ratingSheet.appendRow([
+        timestamp,
+        name,
+        role,
+        ratingVal,
+        message,
+        approved
+      ]);
+
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Rating berhasil disimpan di Sheet Rating!" }))
+        .setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // -------------------------------------------------------------
+    // 3. PESAN DARI FORM KONTAK DISKUSI PROYEK (Sheet: Contacts)
+    // -------------------------------------------------------------
     var contactSheet = ss.getSheetByName("Contacts") || ss.getSheetByName("Sheet1") || ss.getSheets()[0];
     contactSheet.appendRow([
       new Date(),
@@ -275,24 +492,23 @@ function doPost(e) {
     window.dispatchEvent(new CustomEvent('yas_reviews_updated'));
 
     // Send HTTP POST payload with secretCode to Google Apps Script as specified
-    if (scriptUrl.trim()) {
-      try {
-        await fetch(scriptUrl.trim(), {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'APPROVE_TESTIMONIAL',
-            secretCode: password.trim(),
-            id: review.id,
-            author: review.author,
-            quote: review.quote,
-            approved: 'TRUE',
-          }),
-        });
-      } catch (err) {
-        console.warn('Google Apps Script approve warning:', err);
-      }
+    const targetUrl = scriptUrl.trim() || SCRIPT_URL;
+    try {
+      await fetch(targetUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'approve_rating',
+          secret: password.trim() || 'Putra204247T',
+          author: review.author,
+          name: review.author,
+          quote: review.quote,
+          approved: 'TRUE',
+        }),
+      });
+    } catch (err) {
+      console.warn('Google Apps Script approve warning:', err);
     }
 
     setModToast(
@@ -420,7 +636,8 @@ function doPost(e) {
 
   // Copy Google Apps Script code to clipboard
   const handleCopyScript = () => {
-    navigator.clipboard.writeText(googleAppsScriptCode);
+    const textToCopy = scriptTabType === 'reviews' ? reviewsScriptCode : googleAppsScriptCode;
+    navigator.clipboard.writeText(textToCopy);
     setCopiedScript(true);
     setTimeout(() => setCopiedScript(false), 2500);
   };
@@ -937,9 +1154,9 @@ function doPost(e) {
                           }`}
                         >
                           <span className="truncate pr-2">
-                            {projectCategory === 'fullstack' && 'Fullstack (Full Stack Application)'}
-                            {projectCategory === 'backend' && 'Backend (Backend & AI Architecture)'}
-                            {projectCategory === 'designsystem' && 'Design System (UI/UX Design System)'}
+                            {projectCategory === 'fullstack' && 'fullstack (Full Stack Application)'}
+                            {projectCategory === 'backend' && 'backend (Backend & AI Architecture)'}
+                            {projectCategory === 'designsystem' && 'designsystem (UI/UX Design System)'}
                           </span>
                           <span
                             className={`material-symbols-outlined text-lg transition-transform duration-200 shrink-0 ${
@@ -965,9 +1182,9 @@ function doPost(e) {
                               }`}
                             >
                               {[
-                                { value: 'fullstack', label: 'Fullstack (Full Stack Application)' },
-                                { value: 'backend', label: 'Backend (Backend & AI Architecture)' },
-                                { value: 'designsystem', label: 'Design System (UI/UX Design System)' }
+                                { value: 'fullstack', label: 'fullstack (Full Stack Application)' },
+                                { value: 'backend', label: 'backend (Backend & AI Architecture)' },
+                                { value: 'designsystem', label: 'designsystem (UI/UX Design System)' }
                               ].map((opt) => {
                                 const isSelected = projectCategory === opt.value;
                                 return (
@@ -1074,13 +1291,47 @@ function doPost(e) {
                 {/* TAB 3: BACKEND SCRIPT READY TO COPY */}
                 {adminTab === 'script' && (
                   <div className="flex flex-col gap-3">
+                    {/* Sub-tabs Selector */}
+                    <div className="flex items-center gap-2 p-1 rounded-xl bg-black/20 w-fit">
+                      <button
+                        type="button"
+                        onClick={() => setScriptTabType('reviews')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          scriptTabType === 'reviews'
+                            ? 'bg-[#bef264] text-[#080c16] shadow-sm'
+                            : darkMode
+                            ? 'text-slate-400 hover:text-white'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        ⭐ reviews.gs (Sheet Rating)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setScriptTabType('all')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          scriptTabType === 'all'
+                            ? 'bg-[#bef264] text-[#080c16] shadow-sm'
+                            : darkMode
+                            ? 'text-slate-400 hover:text-white'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        📦 Code.gs (All-in-One)
+                      </button>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <h4 className={`font-extrabold text-sm ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                          Kode Backend Google Apps Script (Code.gs)
+                          {scriptTabType === 'reviews'
+                            ? 'Script reviews.gs (Khusus Write Review -> Sheet Rating)'
+                            : 'Kode Backend All-in-One (Code.gs)'}
                         </h4>
                         <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                          Salin dan tempel kode ini di <strong>Extensions &gt; Apps Script</strong> pada Google Spreadsheet Anda.
+                          {scriptTabType === 'reviews'
+                            ? 'Tempel di file reviews.gs untuk menyimpan data rating & ulasan ke sheet "Rating".'
+                            : 'Script gabungan untuk mengelola Projects, Rating, dan Contacts dalam 1 Web App.'}
                         </p>
                       </div>
 
@@ -1092,14 +1343,14 @@ function doPost(e) {
                         <span className="material-symbols-outlined text-sm">
                           {copiedScript ? 'done' : 'content_copy'}
                         </span>
-                        <span>{copiedScript ? 'Tersalin!' : 'Salin Script'}</span>
+                        <span>{copiedScript ? 'Tersalin!' : `Salin ${scriptTabType === 'reviews' ? 'reviews.gs' : 'Code.gs'}`}</span>
                       </button>
                     </div>
 
                     <pre className={`p-4 rounded-xl border text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-72 ${
                       darkMode ? 'bg-black/60 border-slate-800' : 'bg-slate-900 border-slate-800'
                     }`}>
-                      {googleAppsScriptCode}
+                      {scriptTabType === 'reviews' ? reviewsScriptCode : googleAppsScriptCode}
                     </pre>
                   </div>
                 )}

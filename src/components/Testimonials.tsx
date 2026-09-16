@@ -72,6 +72,9 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
   ];
 
   // State
+  const DEFAULT_WEBHOOK_URL =
+    'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
+
   const [reviews, setReviews] = useState<TestimonialItem[]>(() => {
     const saved = localStorage.getItem('yas_portfolio_reviews');
     if (saved) {
@@ -95,8 +98,16 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [sheetWebhookUrl, setSheetWebhookUrl] = useState(() => {
-    return localStorage.getItem('yas_sheet_webhook_url') || '';
+    const saved =
+      localStorage.getItem('yas_reviews_webhook_url') ||
+      localStorage.getItem('yas_sheet_webhook_url');
+    if (!saved || saved.includes('AKfycbwEXPJrr6eOD8X7HAMMtX86loDB0EaTPpnwK3wPl2QSugXa1IZ5SnK745AEM40BlwJ5')) {
+      localStorage.setItem('yas_reviews_webhook_url', DEFAULT_WEBHOOK_URL);
+      return DEFAULT_WEBHOOK_URL;
+    }
+    return saved;
   });
+  const [showUrlSettings, setShowUrlSettings] = useState(false);
 
   // Save reviews to localStorage
   useEffect(() => {
@@ -106,9 +117,64 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
   // Save sheet URL
   useEffect(() => {
     if (sheetWebhookUrl) {
+      localStorage.setItem('yas_reviews_webhook_url', sheetWebhookUrl);
       localStorage.setItem('yas_sheet_webhook_url', sheetWebhookUrl);
     }
   }, [sheetWebhookUrl]);
+
+  // Fetch live testimonials from Google Spreadsheet if available
+  useEffect(() => {
+    let isMounted = true;
+    const fetchSheetReviews = async () => {
+      try {
+        const targetUrl = sheetWebhookUrl.trim() || DEFAULT_WEBHOOK_URL;
+        const res = await fetch(targetUrl);
+        const data = await res.json();
+        if (isMounted && data && Array.isArray(data.ratings) && data.ratings.length > 0) {
+          const sheetReviews: TestimonialItem[] = data.ratings.map((r: any, idx: number) => {
+            const author = r.author || r.name || 'Anonim';
+            const initials = author
+              .split(' ')
+              .map((w: string) => w[0])
+              .slice(0, 2)
+              .join('')
+              .toUpperCase();
+            return {
+              id: r.id || `sheet-rev-${idx}`,
+              author,
+              role: r.role || (lang === 'ID' ? 'Pengunjung Web' : 'Web Visitor'),
+              stars: Number(r.stars || r.rating) || 5,
+              quote: r.quote || r.message || '',
+              avatar: initials || 'US',
+              avatarBg: 'bg-[#2563eb]',
+              avatarText: 'text-white',
+              approved: r.approved === true || String(r.approved).toUpperCase() === 'TRUE',
+              timestamp: r.timestamp || new Date().toLocaleDateString('id-ID'),
+            };
+          });
+
+          setReviews((prev) => {
+            const sheetIds = new Set(sheetReviews.map((sr) => sr.id));
+            const uniquePrev = prev.filter((p) => !sheetIds.has(p.id) && !p.id.startsWith('pre-'));
+            const combined = [
+              ...sheetReviews,
+              ...uniquePrev,
+              ...initialTestimonials.filter((it) => !sheetReviews.some((sr) => sr.author === it.author)),
+            ];
+            localStorage.setItem('yas_portfolio_reviews', JSON.stringify(combined));
+            return combined;
+          });
+        }
+      } catch {
+        // Fallback gracefully to existing testimonials
+      }
+    };
+
+    fetchSheetReviews();
+    return () => {
+      isMounted = false;
+    };
+  }, [sheetWebhookUrl, lang]);
 
   // Sync with Admin Moderation Panel updates
   useEffect(() => {
@@ -150,29 +216,36 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
       avatar: initials || 'US',
       avatarBg: 'bg-[#2563eb]',
       avatarText: 'text-white',
-      approved: false, // Default is NOT approved until reviewed in spreadsheet or owner mode!
+      approved: false, // Default: false until moderated
       timestamp: new Date().toLocaleDateString('id-ID'),
     };
 
-    // If Google Sheet Webhook URL is set, send data via POST
-    if (sheetWebhookUrl.trim()) {
-      try {
-        await fetch(sheetWebhookUrl.trim(), {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            timestamp: new Date().toISOString(),
-            nama: formName.trim(),
-            role: formRole.trim(),
-            rating: formRating,
-            saran: formFeedback.trim(),
-            approved: 'FALSE',
-          }),
-        });
-      } catch (err) {
-        console.warn('Google Sheet submission warning:', err);
-      }
+    const targetUrl = sheetWebhookUrl.trim() || DEFAULT_WEBHOOK_URL;
+
+    // Send payload explicitly for Sheet "Rating"
+    try {
+      await fetch(targetUrl, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'submit_rating',
+          type: 'rating',
+          name: formName.trim(),
+          nama: formName.trim(),
+          author: formName.trim(),
+          role: formRole.trim() || 'Pengunjung Web',
+          rating: formRating,
+          stars: formRating,
+          message: formFeedback.trim(),
+          saran: formFeedback.trim(),
+          quote: formFeedback.trim(),
+          approved: 'FALSE',
+          timestamp: new Date().toISOString(),
+        }),
+      });
+    } catch (err) {
+      console.warn('Google Sheet submission warning:', err);
     }
 
     // Save locally
@@ -488,20 +561,58 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
                       />
                     </div>
 
-                    {/* Moderation Policy Notice */}
-                    <div
-                      className={`p-3 rounded-xl text-[11px] font-medium flex items-start gap-2 ${
-                        darkMode ? 'bg-[#0d1527] text-slate-300' : 'bg-slate-100 text-slate-600'
-                      }`}
-                    >
-                      <span className="material-symbols-outlined text-sm text-[#2563eb] shrink-0 mt-0.5">
-                        shield
-                      </span>
-                      <span>
-                        {lang === 'ID'
-                          ? 'Sistem Terintegrasi Google Spreadsheet: Setiap masukan masuk ke antrean database dengan flag Boolean [Approved: FALSE] agar aman dari ujaran kebencian/SARA sebelum disetujui Yahya.'
-                          : 'Google Spreadsheet Pipeline: Feedback is queued with Boolean flag [Approved: FALSE] for safety and spam filtering prior to public display.'}
-                      </span>
+                    {/* Moderation Policy Notice & Optional URL Config */}
+                    <div className="space-y-2">
+                      <div
+                        className={`p-3 rounded-xl text-[11px] font-medium flex items-start gap-2 ${
+                          darkMode ? 'bg-[#0d1527] text-slate-300' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-sm text-[#2563eb] shrink-0 mt-0.5">
+                          shield
+                        </span>
+                        <div className="flex-1">
+                          <span>
+                            {lang === 'ID'
+                              ? 'Sistem Terintegrasi Google Spreadsheet: Setiap masukan masuk ke antrean database sheet "Rating" dengan status [Approved: FALSE] agar aman dari spam sebelum disetujui.'
+                              : 'Google Spreadsheet Pipeline: Feedback is queued into sheet "Rating" with flag [Approved: FALSE] for safety and spam filtering prior to public display.'}
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setShowUrlSettings(!showUrlSettings)}
+                          title="Pengaturan URL Webhook"
+                          className="text-slate-400 hover:text-white p-0.5 transition-colors cursor-pointer shrink-0"
+                        >
+                          <span className="material-symbols-outlined text-sm">settings</span>
+                        </button>
+                      </div>
+
+                      {showUrlSettings && (
+                        <div
+                          className={`p-3 rounded-xl border text-xs space-y-1.5 transition-all ${
+                            darkMode ? 'bg-[#0b101c] border-slate-700/80' : 'bg-slate-50 border-slate-200'
+                          }`}
+                        >
+                          <label className="block text-[11px] font-bold text-slate-400">
+                            URL Webhook Google Apps Script (reviews.gs / Rating):
+                          </label>
+                          <input
+                            type="url"
+                            value={sheetWebhookUrl}
+                            onChange={(e) => setSheetWebhookUrl(e.target.value)}
+                            placeholder="https://script.google.com/macros/s/.../exec"
+                            className={`w-full px-3 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
+                              darkMode
+                                ? 'bg-[#16223b] border-slate-700 text-white focus:border-[#38bdf8]'
+                                : 'bg-white border-slate-300 text-slate-900 focus:border-[#2563eb]'
+                            }`}
+                          />
+                          <p className="text-[10px] text-slate-500">
+                            Tempel URL Web App dari deployment script <code>reviews.gs</code> di sini jika berbeda.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     {/* Action Buttons */}
