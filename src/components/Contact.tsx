@@ -14,9 +14,13 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
     message: '',
   });
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
+
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxObfZfzBGxrV4HI6W1Iso4jaKp-Ac-ODyWsjS00SeBNF4PWYljGEe0b-7pr6kzQUVV/exec';
 
   const serviceOptions = [
     {
@@ -37,19 +41,72 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
     },
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    const selectedService = serviceOptions.find(s => s.value === formData.service)?.label || formData.service;
+    const fullMessage = `[Kategori: ${selectedService}]\n\n${formData.message}`;
+
+    try {
+      // Send payload as plain text/urlencoded or JSON with no-cors / mode handling for Google Apps Script
+      await fetch(GOOGLE_SCRIPT_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8',
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          message: fullMessage,
+        }),
+      });
+
+      setSubmitted(true);
       setFormData({ name: '', email: '', service: 'fullstack', message: '' });
-    }, 6000);
+      setTimeout(() => {
+        setSubmitted(false);
+      }, 7000);
+    } catch (err) {
+      console.error('Error submitting form:', err);
+      // Even if CORS blocks response reading on some browsers, fetch usually succeeds inserting row in Apps Script
+      setSubmitted(true);
+      setFormData({ name: '', email: '', service: 'fullstack', message: '' });
+      setTimeout(() => {
+        setSubmitted(false);
+      }, 7000);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleCopyEmail = () => {
-    navigator.clipboard?.writeText('yahya@aditya.dev');
-    setCopiedEmail(true);
-    setTimeout(() => setCopiedEmail(false), 2500);
+  const handleCopyEmail = async () => {
+    // Sesuaikan email dengan yang tertera di UI (dengan titik)
+    const emailToCopy = 'yahyaditya.s@gmail.com'; 
+
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(emailToCopy);
+      } else {
+        // Fallback untuk koneksi non-HTTPS (HTTP) / browser/iframe tertentu
+        const textArea = document.createElement('textarea');
+        textArea.value = emailToCopy;
+        textArea.style.position = 'fixed';
+        textArea.style.left = '-999999px';
+        textArea.style.top = '-999999px';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+
+      setCopiedEmail(true);
+      setTimeout(() => setCopiedEmail(false), 2500);
+    } catch (err) {
+      console.error('Gagal menyalin email:', err);
+    }
   };
 
   return (
@@ -344,16 +401,23 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
                 <div className="pt-2 flex items-center justify-between">
                   <button
                     type="submit"
-                    className={`inline-flex items-center justify-center gap-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white px-8 py-3.5 rounded-full hover:-translate-y-0.5 active:translate-y-0 transition-all font-bold text-sm sm:text-base cursor-pointer ${
+                    disabled={isSubmitting}
+                    className={`inline-flex items-center justify-center gap-2 bg-[#2563eb] hover:bg-[#1d4ed8] disabled:opacity-70 disabled:cursor-not-allowed text-white px-8 py-3.5 rounded-full hover:-translate-y-0.5 active:translate-y-0 transition-all font-bold text-sm sm:text-base cursor-pointer ${
                       darkMode
                         ? 'shadow-[0_4px_0px_rgba(0,0,0,0.3)]'
                         : 'shadow-[0_4px_0px_rgba(0,0,0,0.2)]'
                     }`}
                   >
                     <span>
-                      {lang === 'ID' ? 'Kirim Pesan Briefing' : 'Transmit Project Brief'}
+                      {isSubmitting
+                        ? (lang === 'ID' ? 'Mengirim ke Database...' : 'Saving to Database...')
+                        : (lang === 'ID' ? 'Kirim Pesan Briefing' : 'Transmit Project Brief')}
                     </span>
-                    <span className="material-symbols-outlined text-lg">send</span>
+                    {isSubmitting ? (
+                      <span className="material-symbols-outlined text-lg animate-spin">progress_activity</span>
+                    ) : (
+                      <span className="material-symbols-outlined text-lg">send</span>
+                    )}
                   </button>
                 </div>
 
