@@ -135,7 +135,7 @@ export const CVModal: React.FC<CVModalProps> = ({ isOpen, onClose, lang, darkMod
                 darkMode ? 'bg-[#0f172a] border-[#1e293b]' : 'bg-blue-50 border-blue-100'
               }`}
             >
-              <span className="font-bold text-slate-300 shrink-0 flex items-center gap-1">
+              <span className="font-bold text-slate-400 shrink-0 flex items-center gap-1">
                 <span className="material-symbols-outlined text-sm text-blue-400">cloud</span>
                 <span>URL Google Drive:</span>
               </span>

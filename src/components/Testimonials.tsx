@@ -2,6 +2,30 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 
+// Self-contained persistent review helpers
+function generateReviewId(author: string, quote: string, timestamp?: string, fallbackIdx?: number): string {
+  const cleanAuthor = (author || 'user').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16);
+  const cleanQuote = (quote || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
+  const cleanTime = (timestamp || '').replace(/[^a-z0-9]/g, '').slice(-8);
+  const suffix = cleanTime || (typeof fallbackIdx === 'number' ? `idx${fallbackIdx}` : '0');
+  return `rev_${cleanAuthor}_${cleanQuote}_${suffix}`;
+}
+
+function getApprovedReviewIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem('yas_approved_review_ids');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return new Set(arr);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return new Set<string>();
+}
+
 interface TestimonialItem {
   id: string;
   author: string;
@@ -22,54 +46,8 @@ interface TestimonialsProps {
 }
 
 export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOpenAdmin }) => {
-  // Initial default testimonials (pre-approved)
-  const initialTestimonials: TestimonialItem[] = [
-    {
-      id: 'pre-1',
-      stars: 5,
-      quote:
-        lang === 'ID'
-          ? '“Yahya mampu menerjemahkan rancangan antarmuka yang sangat kompleks menjadi implementasi Tailwind dan React tanpa kehilangan detail estetika sedikit pun. Kecepatan kerjanya luar biasa.”'
-          : '“Yahya translated complex interface blueprints into production-ready Tailwind and React implementations without sacrificing a single aesthetic detail. Remarkable velocity.”',
-      author: 'Rian Ardiansyah',
-      role: 'Lead Product Designer • Infotact',
-      avatar: 'RA',
-      avatarBg: 'bg-[#2563eb]',
-      avatarText: 'text-white',
-      approved: true,
-      timestamp: '2025-01-15',
-    },
-    {
-      id: 'pre-2',
-      stars: 5,
-      quote:
-        lang === 'ID'
-          ? '“Arsitektur kode FastAPI yang disusun untuk proyek evaluasi semantik kami sangat bersih. Skemanya rapi, dokumentasi OpenAPI otomatis lengkap, dan mudah dimaintain oleh tim internal.”'
-          : '“The FastAPI code architecture designed for our semantic evaluation engine was remarkably clean. Documented OpenAPI schemas and seamless internal maintainability.”',
-      author: 'Dimas Kurniawan',
-      role: 'Engineering Manager • TechLab',
-      avatar: 'DK',
-      avatarBg: 'bg-[#bef264]',
-      avatarText: 'text-[#080c16]',
-      approved: true,
-      timestamp: '2025-01-20',
-    },
-    {
-      id: 'pre-3',
-      stars: 5,
-      quote:
-        lang === 'ID'
-          ? '“Etos kerja dan ketepatan waktu delivery Yahya sangat teruji sejak di SMK Telkom Malang. Menyenangkan sekali berkolaborasi dengan developer yang memahami design logic secara mendalam.”'
-          : '“Yahya’s delivery ethic and speed have been proven since his vocational roots at SMK Telkom Malang. It is refreshing to collaborate with an engineer who genuinely grasps design logic.”',
-      author: 'Fauzan Wicaksono',
-      role: 'Senior Frontend Engineer',
-      avatar: 'FW',
-      avatarBg: 'bg-[#7e22ce]',
-      avatarText: 'text-white',
-      approved: true,
-      timestamp: '2025-02-01',
-    },
-  ];
+  // Real data only: No gimmick testimonials
+  const initialTestimonials: TestimonialItem[] = [];
 
   // State
   const DEFAULT_WEBHOOK_URL =
@@ -79,12 +57,19 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
     const saved = localStorage.getItem('yas_portfolio_reviews');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          return parsed.filter((r: any) => {
+            const cleanQuote = String(r.quote || r.message || '').replace(/[“”"'\s]/g, '').trim();
+            const cleanAuthor = String(r.author || r.name || '').trim().toLowerCase();
+            return cleanQuote.length > 0 && cleanAuthor !== 'anonim' && cleanAuthor !== '';
+          });
+        }
       } catch {
-        return initialTestimonials;
+        return [];
       }
     }
-    return initialTestimonials;
+    return [];
   });
 
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -97,73 +82,64 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
   const [formFeedback, setFormFeedback] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitSuccess, setSubmitSuccess] = useState(false);
-  const [sheetWebhookUrl, setSheetWebhookUrl] = useState(() => {
-    const saved =
-      localStorage.getItem('yas_reviews_webhook_url') ||
-      localStorage.getItem('yas_sheet_webhook_url');
-    if (!saved || saved.includes('AKfycbwEXPJrr6eOD8X7HAMMtX86loDB0EaTPpnwK3wPl2QSugXa1IZ5SnK745AEM40BlwJ5')) {
-      localStorage.setItem('yas_reviews_webhook_url', DEFAULT_WEBHOOK_URL);
-      return DEFAULT_WEBHOOK_URL;
-    }
-    return saved;
-  });
-  const [showUrlSettings, setShowUrlSettings] = useState(false);
 
   // Save reviews to localStorage
   useEffect(() => {
     localStorage.setItem('yas_portfolio_reviews', JSON.stringify(reviews));
   }, [reviews]);
 
-  // Save sheet URL
-  useEffect(() => {
-    if (sheetWebhookUrl) {
-      localStorage.setItem('yas_reviews_webhook_url', sheetWebhookUrl);
-      localStorage.setItem('yas_sheet_webhook_url', sheetWebhookUrl);
-    }
-  }, [sheetWebhookUrl]);
-
   // Fetch live testimonials from Google Spreadsheet if available
   useEffect(() => {
     let isMounted = true;
     const fetchSheetReviews = async () => {
       try {
-        const targetUrl = sheetWebhookUrl.trim() || DEFAULT_WEBHOOK_URL;
-        const res = await fetch(targetUrl);
+        const res = await fetch(DEFAULT_WEBHOOK_URL);
         const data = await res.json();
-        if (isMounted && data && Array.isArray(data.ratings) && data.ratings.length > 0) {
-          const sheetReviews: TestimonialItem[] = data.ratings.map((r: any, idx: number) => {
-            const author = r.author || r.name || 'Anonim';
-            const initials = author
-              .split(' ')
-              .map((w: string) => w[0])
-              .slice(0, 2)
-              .join('')
-              .toUpperCase();
-            return {
-              id: r.id || `sheet-rev-${idx}`,
-              author,
-              role: r.role || (lang === 'ID' ? 'Pengunjung Web' : 'Web Visitor'),
-              stars: Number(r.stars || r.rating) || 5,
-              quote: r.quote || r.message || '',
-              avatar: initials || 'US',
-              avatarBg: 'bg-[#2563eb]',
-              avatarText: 'text-white',
-              approved: r.approved === true || String(r.approved).toUpperCase() === 'TRUE',
-              timestamp: r.timestamp || new Date().toLocaleDateString('id-ID'),
-            };
-          });
+        if (isMounted && data && Array.isArray(data.ratings)) {
+          const sheetReviews: TestimonialItem[] = data.ratings
+            .filter((r: any) => {
+              const cleanQuote = String(r.quote || r.message || '').replace(/[“”"'\s]/g, '').trim();
+              const cleanAuthor = String(r.author || r.name || '').trim().toLowerCase();
+              // HANYA data nyata: Wajib ada teks ulasan (bukan cuma tanda kutip kosong) dan bukan "Anonim"
+              return cleanQuote.length > 0 && cleanAuthor !== 'anonim' && cleanAuthor !== '';
+            })
+            .map((r: any, idx: number) => {
+              const author = (r.author || r.name || 'Pengunjung Web').trim();
+              const rawQuote = (r.quote || r.message || '').trim();
+              const cleanQuote = rawQuote.replace(/^[“”"]+|[“”"]+$/g, '').trim();
+              const initials = author
+                .split(' ')
+                .map((w: string) => w[0])
+                .slice(0, 2)
+                .join('')
+                .toUpperCase();
+              const id =
+                r.id && (typeof r.id === 'string' || typeof r.id === 'number') && String(r.id).trim()
+                  ? String(r.id).trim()
+                  : String(idx + 1);
+              
+              // STRICT: Hanya ulasan dengan approved TRUE di spreadsheet yang berstatus approved: true!
+              const isApproved =
+                r.approved === true ||
+                String(r.approved).toLowerCase() === 'true';
 
-          setReviews((prev) => {
-            const sheetIds = new Set(sheetReviews.map((sr) => sr.id));
-            const uniquePrev = prev.filter((p) => !sheetIds.has(p.id) && !p.id.startsWith('pre-'));
-            const combined = [
-              ...sheetReviews,
-              ...uniquePrev,
-              ...initialTestimonials.filter((it) => !sheetReviews.some((sr) => sr.author === it.author)),
-            ];
-            localStorage.setItem('yas_portfolio_reviews', JSON.stringify(combined));
-            return combined;
-          });
+              return {
+                id,
+                author,
+                role: r.role || (lang === 'ID' ? 'Pengunjung Web' : 'Web Visitor'),
+                stars: Number(r.stars || r.rating) || 5,
+                quote: `“${cleanQuote}”`,
+                avatar: initials || 'US',
+                avatarBg: 'bg-[#2563eb]',
+                avatarText: 'text-white',
+                approved: isApproved,
+                timestamp: r.timestamp || new Date().toLocaleDateString('id-ID'),
+              };
+            });
+
+          // Ulasan dari Spreadsheet menjadi satu-satunya sumber data asli
+          setReviews(sheetReviews);
+          localStorage.setItem('yas_portfolio_reviews', JSON.stringify(sheetReviews));
         }
       } catch {
         // Fallback gracefully to existing testimonials
@@ -174,7 +150,7 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
     return () => {
       isMounted = false;
     };
-  }, [sheetWebhookUrl, lang]);
+  }, [lang]);
 
   // Sync with Admin Moderation Panel updates
   useEffect(() => {
@@ -207,8 +183,10 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
       .join('')
       .toUpperCase();
 
+    const newId = generateReviewId(formName.trim(), formFeedback.trim(), Date.now().toString());
+
     const newReview: TestimonialItem = {
-      id: `rev-${Date.now()}`,
+      id: newId,
       author: formName.trim(),
       role: formRole.trim() || (lang === 'ID' ? 'Pengunjung Web / Rekan' : 'Web Visitor / Peer'),
       stars: formRating,
@@ -220,7 +198,7 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
       timestamp: new Date().toLocaleDateString('id-ID'),
     };
 
-    const targetUrl = sheetWebhookUrl.trim() || DEFAULT_WEBHOOK_URL;
+    const targetUrl = DEFAULT_WEBHOOK_URL;
 
     // Send payload explicitly for Sheet "Rating"
     try {
@@ -231,6 +209,7 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
         body: JSON.stringify({
           action: 'submit_rating',
           type: 'rating',
+          id: newId,
           name: formName.trim(),
           nama: formName.trim(),
           author: formName.trim(),
@@ -240,7 +219,7 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
           message: formFeedback.trim(),
           saran: formFeedback.trim(),
           quote: formFeedback.trim(),
-          approved: 'FALSE',
+          approved: false,
           timestamp: new Date().toISOString(),
         }),
       });
@@ -248,8 +227,13 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
       console.warn('Google Sheet submission warning:', err);
     }
 
-    // Save locally
-    setReviews((prev) => [newReview, ...prev]);
+    // Save locally and notify admin panel
+    setReviews((prev) => {
+      const next = [newReview, ...prev];
+      localStorage.setItem('yas_portfolio_reviews', JSON.stringify(next));
+      return next;
+    });
+    window.dispatchEvent(new CustomEvent('yas_reviews_updated'));
     setIsSubmitting(false);
     setSubmitSuccess(true);
 
@@ -314,9 +298,9 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
 
         {/* Public Testimonials Grid (Approved Only) */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-space-md">
-          {approvedReviews.map((item) => (
+          {approvedReviews.map((item, itemIdx) => (
             <motion.div
-              key={item.id}
+              key={`${item.id}-${itemIdx}`}
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               className={`rounded-3xl p-space-lg shadow-sm flex flex-col justify-between border transition-all duration-300 hover:-translate-y-1 ${
@@ -578,41 +562,7 @@ export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOp
                               : 'Google Spreadsheet Pipeline: Feedback is queued into sheet "Rating" with flag [Approved: FALSE] for safety and spam filtering prior to public display.'}
                           </span>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => setShowUrlSettings(!showUrlSettings)}
-                          title="Pengaturan URL Webhook"
-                          className="text-slate-400 hover:text-white p-0.5 transition-colors cursor-pointer shrink-0"
-                        >
-                          <span className="material-symbols-outlined text-sm">settings</span>
-                        </button>
                       </div>
-
-                      {showUrlSettings && (
-                        <div
-                          className={`p-3 rounded-xl border text-xs space-y-1.5 transition-all ${
-                            darkMode ? 'bg-[#0b101c] border-slate-700/80' : 'bg-slate-50 border-slate-200'
-                          }`}
-                        >
-                          <label className="block text-[11px] font-bold text-slate-400">
-                            URL Webhook Google Apps Script (reviews.gs / Rating):
-                          </label>
-                          <input
-                            type="url"
-                            value={sheetWebhookUrl}
-                            onChange={(e) => setSheetWebhookUrl(e.target.value)}
-                            placeholder="https://script.google.com/macros/s/.../exec"
-                            className={`w-full px-3 py-1.5 rounded-lg border text-xs font-mono transition-colors ${
-                              darkMode
-                                ? 'bg-[#16223b] border-slate-700 text-white focus:border-[#38bdf8]'
-                                : 'bg-white border-slate-300 text-slate-900 focus:border-[#2563eb]'
-                            }`}
-                          />
-                          <p className="text-[10px] text-slate-500">
-                            Tempel URL Web App dari deployment script <code>reviews.gs</code> di sini jika berbeda.
-                          </p>
-                        </div>
-                      )}
                     </div>
 
                     {/* Action Buttons */}

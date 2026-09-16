@@ -56,3 +56,27 @@ export interface Testimonial {
   projectWorkedOn: string;
   rating: number;
 }
+
+export interface ProjectItem {
+  id: string;
+  category: 'all' | 'fullstack' | 'backend' | 'designsystem' | string;
+  year: string;
+  badge: string;
+  badgeBg?: string;
+  badgeText?: string;
+  title: string;
+  subtitle?: string;
+  description: string;
+  tags: string[];
+  status: string;
+  actionText?: string;
+  type?: 'plagin' | 'karsa' | 'finflow' | 'nusantara' | string;
+  imageUrl?: string;
+  githubUrl?: string;
+  demoUrl?: string;
+  image?: string;
+  github?: string;
+  demo?: string;
+  liveUrl?: string;
+  [key: string]: any;
+}

@@ -1,6 +1,57 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ProjectItem } from '../data/portfolioData';
+
+// Extended ProjectItem interface guaranteeing full type safety across environments
+export interface ProjectItem {
+  id: string;
+  category?: 'all' | 'fullstack' | 'backend' | 'designsystem' | string;
+  year?: string;
+  badge?: string;
+  badgeBg?: string;
+  badgeText?: string;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  tags?: string[];
+  status?: string;
+  actionText?: string;
+  type?: 'plagin' | 'karsa' | 'finflow' | 'nusantara' | string;
+  imageUrl?: string;
+  githubUrl?: string;
+  demoUrl?: string;
+  image?: string;
+  github?: string;
+  demo?: string;
+  liveUrl?: string;
+  [key: string]: any;
+}
+
+function extractGoogleDriveId(url: string): string | null {
+  if (!url || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  const matchFileD = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i);
+  if (matchFileD && matchFileD[1]) return matchFileD[1];
+  const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+  if (matchId && matchId[1]) return matchId[1];
+  const matchD = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/i);
+  if (matchD && matchD[1]) return matchD[1];
+  return null;
+}
+
+function formatGoogleDriveUrl(url?: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  const driveId = extractGoogleDriveId(trimmed);
+  if (driveId) return `https://lh3.googleusercontent.com/d/${driveId}`;
+  return trimmed;
+}
+
+function getGoogleDriveFallbackUrl(url?: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const driveId = extractGoogleDriveId(url);
+  if (driveId) return `https://drive.google.com/thumbnail?id=${driveId}&sz=w1200`;
+  return url;
+}
 
 interface ProjectModalProps {
   project: ProjectItem | null;
@@ -172,51 +223,102 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
             </motion.div>
 
             {/* Tags */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="flex flex-wrap gap-2 mb-6"
-            >
-              {project.tags.map((tag) => (
-                <span
-                  key={tag}
-                  className={`text-xs font-bold px-3 py-1 rounded-full transition-transform hover:scale-105 ${
-                    darkMode
-                      ? 'bg-[#16223b] border border-[#334155] text-white hover:border-[#38bdf8]'
-                      : 'bg-[#eaedff] text-[#131b2e] hover:bg-blue-100'
-                  }`}
-                >
-                  {tag}
-                </span>
-              ))}
-            </motion.div>
+            {project.tags && project.tags.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 }}
+                className="flex flex-wrap gap-2 mb-6"
+              >
+                {(project.tags || []).map((tag, tagIdx) => (
+                  <span
+                    key={`${project.id || 'modal'}-tag-${tag}-${tagIdx}`}
+                    className={`text-xs font-bold px-3 py-1 rounded-full transition-transform hover:scale-105 ${
+                      darkMode
+                        ? 'bg-[#16223b] border border-[#334155] text-white hover:border-[#38bdf8]'
+                        : 'bg-[#eaedff] text-[#131b2e] hover:bg-blue-100'
+                    }`}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </motion.div>
+            )}
+
+            {/* Project Image in Modal if available */}
+            {project.imageUrl && (
+              <div className="w-full h-48 sm:h-56 rounded-2xl overflow-hidden mb-4 border border-[#23324f] relative bg-black/40">
+                <img
+                  src={formatGoogleDriveUrl(project.imageUrl)}
+                  alt={project.title}
+                  className="w-full h-full object-cover"
+                  referrerPolicy="no-referrer"
+                  onError={(e) => {
+                    const fallback = getGoogleDriveFallbackUrl(project.imageUrl);
+                    if (fallback && e.currentTarget.src !== fallback) {
+                      e.currentTarget.src = fallback;
+                    }
+                  }}
+                />
+              </div>
+            )}
 
             {/* Modal CTA Buttons */}
             <div
-              className={`flex items-center justify-end gap-3 pt-4 border-t mt-auto ${
+              className={`flex flex-wrap items-center justify-between gap-3 pt-4 border-t mt-auto ${
                 darkMode ? 'border-[#1e293b]' : 'border-slate-100'
               }`}
             >
-              <button
-                type="button"
-                onClick={onClose}
-                className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
-                  darkMode
-                    ? 'text-[#cbd5e1] hover:bg-[#16223b]'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {lang === 'ID' ? 'Tutup' : 'Close'}
-              </button>
-              <a
-                href="#diskusi-proyek"
-                onClick={onClose}
-                className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs sm:text-sm font-bold shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
-              >
-                <span>{lang === 'ID' ? 'Diskusikan Proyek Serupa' : 'Inquire Similar Project'}</span>
-                <span className="material-symbols-outlined text-sm">arrow_forward</span>
-              </a>
+              <div className="flex items-center gap-2">
+                {project.githubUrl && (
+                  <a
+                    href={project.githubUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full border text-xs font-bold transition-all ${
+                      darkMode
+                        ? 'border-[#334155] text-white hover:bg-[#1e293b]'
+                        : 'border-slate-200 text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <span className="material-symbols-outlined text-sm">code</span>
+                    <span>GitHub</span>
+                  </a>
+                )}
+                {project.demoUrl && (
+                  <a
+                    href={project.demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#bef264] hover:bg-[#a8e04b] text-[#080c16] text-xs font-extrabold shadow-sm transition-all"
+                  >
+                    <span className="material-symbols-outlined text-sm">open_in_new</span>
+                    <span>Live Demo</span>
+                  </a>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
+                    darkMode
+                      ? 'text-[#cbd5e1] hover:bg-[#16223b]'
+                      : 'text-slate-600 hover:bg-slate-100'
+                  }`}
+                >
+                  {lang === 'ID' ? 'Tutup' : 'Close'}
+                </button>
+                <a
+                  href="#diskusi-proyek"
+                  onClick={onClose}
+                  className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs sm:text-sm font-bold shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
+                >
+                  <span>{lang === 'ID' ? 'Diskusikan Proyek' : 'Inquire Project'}</span>
+                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
+                </a>
+              </div>
             </div>
           </motion.div>
         </motion.div>

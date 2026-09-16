@@ -1,6 +1,63 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 
+// Self-contained Google Drive image url formatter
+function formatGoogleDriveUrl(url?: string): string {
+  if (!url || typeof url !== 'string') return '';
+  const trimmed = url.trim();
+  const matchFileD = trimmed.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i);
+  if (matchFileD && matchFileD[1]) return `https://lh3.googleusercontent.com/d/${matchFileD[1]}`;
+  const matchId = trimmed.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+  if (matchId && matchId[1]) return `https://lh3.googleusercontent.com/d/${matchId[1]}`;
+  const matchD = trimmed.match(/\/d\/([a-zA-Z0-9_-]+)/i);
+  if (matchD && matchD[1]) return `https://lh3.googleusercontent.com/d/${matchD[1]}`;
+  return trimmed;
+}
+
+// Self-contained persistent review helpers
+function generateReviewId(author: string, quote: string, timestamp?: string, fallbackIdx?: number): string {
+  const cleanAuthor = (author || 'user').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16);
+  const cleanQuote = (quote || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 20);
+  const cleanTime = (timestamp || '').replace(/[^a-z0-9]/g, '').slice(-8);
+  const suffix = cleanTime || (typeof fallbackIdx === 'number' ? `idx${fallbackIdx}` : '0');
+  return `rev_${cleanAuthor}_${cleanQuote}_${suffix}`;
+}
+
+function getApprovedReviewIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem('yas_approved_review_ids');
+    if (raw) {
+      const arr = JSON.parse(raw);
+      if (Array.isArray(arr)) {
+        return new Set(arr);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  return new Set<string>();
+}
+
+function saveApprovedReviewId(id: string): void {
+  try {
+    const set = getApprovedReviewIds();
+    set.add(id);
+    localStorage.setItem('yas_approved_review_ids', JSON.stringify(Array.from(set)));
+  } catch {
+    // ignore
+  }
+}
+
+function removeApprovedReviewId(id: string): void {
+  try {
+    const set = getApprovedReviewIds();
+    set.delete(id);
+    localStorage.setItem('yas_approved_review_ids', JSON.stringify(Array.from(set)));
+  } catch {
+    // ignore
+  }
+}
+
 interface TestimonialItem {
   id: string;
   author: string;
@@ -22,6 +79,8 @@ interface AdminModalProps {
   onReplayLoading?: () => void;
 }
 
+const TWO_DAYS_MS = 2 * 24 * 60 * 60 * 1000; // 48 jam
+
 export const AdminModal: React.FC<AdminModalProps> = ({
   isOpen,
   onClose,
@@ -29,9 +88,30 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   darkMode,
   onReplayLoading,
 }) => {
-  // Authentication & Security State
-  const [password, setPassword] = useState('');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // Authentication & Security State - Remembered up to 2 days (48 hours)
+  const [password, setPassword] = useState(() => {
+    try {
+      return localStorage.getItem('yas_admin_secret_code') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    try {
+      const timestampStr = localStorage.getItem('yas_admin_auth_timestamp');
+      if (timestampStr) {
+        const authTime = parseInt(timestampStr, 10);
+        if (!isNaN(authTime) && Date.now() - authTime < TWO_DAYS_MS) {
+          return true;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return false;
+  });
+
   const [authError, setAuthError] = useState('');
   const [isVerifying, setIsVerifying] = useState(false);
 
@@ -67,8 +147,75 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [modToast, setModToast] = useState('');
   const [copiedScript, setCopiedScript] = useState(false);
 
+  // Logout handler
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setPassword('');
+    try {
+      localStorage.removeItem('yas_admin_auth_timestamp');
+      localStorage.removeItem('yas_admin_secret_code');
+    } catch {
+      // ignore
+    }
+  };
+
   // Load reviews from localStorage & spreadsheet
   const refreshReviews = async () => {
+    const approvedIds = getApprovedReviewIds();
+    const REVIEWS_SCRIPT_URL =
+      localStorage.getItem('yas_reviews_webhook_url') ||
+      'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
+
+    try {
+      const res = await fetch(REVIEWS_SCRIPT_URL);
+      const data = await res.json();
+      if (data && Array.isArray(data.ratings)) {
+        // Direct synchronization with spreadsheet:
+        // Filter out blank/corrupted anomaly rows and match by primary key
+        const mapped: TestimonialItem[] = data.ratings
+          .filter((r: any) => {
+            const cleanQuote = String(r.quote || r.message || '').replace(/[“”"'\s]/g, '').trim();
+            const cleanAuthor = String(r.author || r.name || '').trim().toLowerCase();
+            // Abaikan baris anomali kosong / Anonim tanpa saran
+            return cleanQuote.length > 0 && cleanAuthor !== 'anonim' && cleanAuthor !== '';
+          })
+          .map((r: any, idx: number) => {
+            const author = (r.author || r.name || 'Pengunjung Web').trim();
+            const rawQuote = (r.quote || r.message || '').trim();
+            const cleanQuote = rawQuote.replace(/^[“”"]+|[“”"]+$/g, '').trim();
+            const id =
+              r.id && (typeof r.id === 'string' || typeof r.id === 'number') && String(r.id).trim()
+                ? String(r.id).trim()
+                : String(idx + 1);
+            
+            // STRICT: Status persetujuan mengikuti boolean dari spreadsheet!
+            const isApproved =
+              r.approved === true ||
+              String(r.approved).toLowerCase() === 'true';
+
+            return {
+              id,
+              author,
+              role: r.role || (lang === 'ID' ? 'Pengunjung Web' : 'Web Visitor'),
+              stars: Number(r.stars || r.rating) || 5,
+              quote: `“${cleanQuote}”`,
+              avatar: (author || 'US').slice(0, 2).toUpperCase(),
+              avatarBg: 'bg-[#2563eb]',
+              avatarText: 'text-white',
+              approved: isApproved,
+              timestamp: r.timestamp || '',
+            };
+          });
+
+        setReviews(mapped);
+        localStorage.setItem('yas_portfolio_reviews', JSON.stringify(mapped));
+        window.dispatchEvent(new CustomEvent('yas_reviews_updated'));
+        return;
+      }
+    } catch {
+      // offline fallback: read from localStorage
+    }
+
     const saved = localStorage.getItem('yas_portfolio_reviews');
     if (saved) {
       try {
@@ -77,38 +224,23 @@ export const AdminModal: React.FC<AdminModalProps> = ({
         setReviews([]);
       }
     }
-
-    const REVIEWS_SCRIPT_URL =
-      localStorage.getItem('yas_reviews_webhook_url') ||
-      'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
-
-    try {
-      const res = await fetch(REVIEWS_SCRIPT_URL);
-      const data = await res.json();
-      if (data && Array.isArray(data.ratings) && data.ratings.length > 0) {
-        const mapped: TestimonialItem[] = data.ratings.map((r: any, idx: number) => ({
-          id: r.id || `sheet-rev-${idx}`,
-          author: r.author || r.name || 'Anonim',
-          role: r.role || (lang === 'ID' ? 'Pengunjung Web' : 'Web Visitor'),
-          stars: Number(r.stars || r.rating) || 5,
-          quote: r.quote || r.message || '',
-          avatar: (r.author || 'US').slice(0, 2).toUpperCase(),
-          avatarBg: 'bg-[#2563eb]',
-          avatarText: 'text-white',
-          approved: r.approved === true || String(r.approved).toUpperCase() === 'TRUE',
-          timestamp: r.timestamp || '',
-        }));
-
-        setReviews(mapped);
-        localStorage.setItem('yas_portfolio_reviews', JSON.stringify(mapped));
-      }
-    } catch {
-      // offline fallback
-    }
   };
 
   useEffect(() => {
     if (isOpen) {
+      try {
+        const timestampStr = localStorage.getItem('yas_admin_auth_timestamp');
+        if (timestampStr) {
+          const authTime = parseInt(timestampStr, 10);
+          if (!isNaN(authTime) && Date.now() - authTime >= TWO_DAYS_MS) {
+            handleLogout();
+          } else {
+            setIsAuthenticated(true);
+          }
+        }
+      } catch {
+        // ignore
+      }
       refreshReviews();
     }
   }, [isOpen]);
@@ -123,29 +255,123 @@ export const AdminModal: React.FC<AdminModalProps> = ({
 
   // Khusus Script reviews.gs untuk Write Review & Rating ke sheet "Rating"
   const reviewsScriptCode = `// =============================================================================
-// BACKEND WRITE REVIEW & RATING (reviews.gs)
-// Database: Google Spreadsheet -> Tab: "Rating"
+// BACKEND GOOGLE APPS SCRIPT: REVIEW & RATING PORTOFOLIO (reviews.gs)
+// Spreadsheet Tab: "Rating"
+//
+// FITUR UTAMA:
+// 1. PRIMARY KEY AUTO-INCREMENT (Kolom A / ID: 1, 2, 3, 4...)
+// 2. APPROVE BERDASARKAN ID: Mengubah sel Approved menjadi TRUE pada baris ID tersebut
+//    (HANYA mengubah status, TIDAK membuat/menambah baris baru / anti-anomali)
+// 3. TOLAK / DELETE BERDASARKAN ID: Menghapus baris ulasan sesuai Primary Key
+// 4. VALIDASI ANTI-ANOMALI: Menolak ulasan kosong agar tidak muncul data "Anonim" palsu
+// 5. OTOMATIS MEMBUAT KOLOM ID DI PALING KIRI jika sheet belum memiliki kolom ID
 // =============================================================================
+
+function ensureIdColumn(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["id", "timestamp", "name", "role", "rating", "message", "approved"]);
+    PropertiesService.getScriptProperties().setProperty("LAST_REVIEW_ID", "0");
+    return;
+  }
+  
+  var firstCell = String(sheet.getRange(1, 1).getValue()).toLowerCase().trim();
+  if (firstCell !== "id") {
+    sheet.insertColumnBefore(1);
+    sheet.getRange(1, 1).setValue("id");
+    
+    var lastRow = sheet.getLastRow();
+    var maxId = 0;
+    for (var r = 2; r <= lastRow; r++) {
+      var assignedId = r - 1;
+      sheet.getRange(r, 1).setValue(assignedId);
+      maxId = assignedId;
+    }
+    PropertiesService.getScriptProperties().setProperty("LAST_REVIEW_ID", String(maxId));
+  } else {
+    var lastRow = sheet.getLastRow();
+    if (lastRow > 1) {
+      var idColValues = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      var props = PropertiesService.getScriptProperties();
+      var currentLast = parseInt(props.getProperty("LAST_REVIEW_ID") || "0", 10);
+      if (isNaN(currentLast)) currentLast = 0;
+      
+      var needsUpdate = false;
+      for (var k = 0; k < idColValues.length; k++) {
+        var cellVal = idColValues[k][0];
+        if (cellVal === "" || cellVal === null || cellVal === undefined) {
+          currentLast++;
+          sheet.getRange(k + 2, 1).setValue(currentLast);
+          needsUpdate = true;
+        } else {
+          var num = parseInt(cellVal, 10);
+          if (!isNaN(num) && num > currentLast) {
+            currentLast = num;
+            needsUpdate = true;
+          }
+        }
+      }
+      if (needsUpdate) {
+        props.setProperty("LAST_REVIEW_ID", String(currentLast));
+      }
+    }
+  }
+}
+
+function getNextReviewId(sheet) {
+  var props = PropertiesService.getScriptProperties();
+  var propId = parseInt(props.getProperty("LAST_REVIEW_ID") || "0", 10);
+  if (isNaN(propId)) propId = 0;
+  
+  var sheetMaxId = 0;
+  var data = sheet.getDataRange().getValues();
+  for (var i = 1; i < data.length; i++) {
+    var val = parseInt(data[i][0], 10);
+    if (!isNaN(val) && val > sheetMaxId) {
+      sheetMaxId = val;
+    }
+  }
+  
+  var currentMax = Math.max(propId, sheetMaxId);
+  var nextId = currentMax + 1;
+  props.setProperty("LAST_REVIEW_ID", String(nextId));
+  return nextId;
+}
 
 function doGet(e) {
   try {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("Rating") || ss.getActiveSheet();
+    if (!sheet) {
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Sheet Rating tidak ditemukan"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    ensureIdColumn(sheet);
+    
     var rows = sheet.getDataRange().getValues();
     var ratings = [];
     
-    // Baris 1 adalah header, data ulasan mulai dari baris 2 (index 1)
     for (var i = 1; i < rows.length; i++) {
       var row = rows[i];
-      if (row[1] || row[4]) {
+      var rowId = row[0];
+      var name = row[2];
+      var message = row[5];
+      
+      if (rowId || name || message) {
+        var idVal = (rowId !== "" && rowId !== null && rowId !== undefined) ? String(rowId) : String(i);
+        var approvedRaw = row[6];
+        var isApproved = (approvedRaw === true || String(approvedRaw).toUpperCase() === "TRUE");
+
         ratings.push({
-          id: "rev-" + i,
-          timestamp: row[0] ? Utilities.formatDate(new Date(row[0]), "Asia/Jakarta", "dd/MM/yyyy HH:mm") : "",
-          author: String(row[1] || "Anonim"),
-          role: String(row[2] || "Pengunjung"),
-          stars: Number(row[3]) || 5,
-          quote: String(row[4] || ""),
-          approved: String(row[5]).toUpperCase() === "TRUE"
+          id: idVal,
+          timestamp: row[1] ? (row[1] instanceof Date ? Utilities.formatDate(row[1], "Asia/Jakarta", "dd/MM/yyyy HH:mm") : String(row[1])) : "",
+          author: String(name || "Pengunjung"),
+          role: String(row[3] || "Pengunjung Web"),
+          stars: Number(row[4]) || 5,
+          quote: String(message || ""),
+          approved: isApproved
         });
       }
     }
@@ -154,6 +380,7 @@ function doGet(e) {
       status: "success",
       ratings: ratings
     })).setMimeType(ContentService.MimeType.JSON);
+    
   } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({
       status: "error",
@@ -170,17 +397,7 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
     var sheet = ss.getSheetByName("Rating") || ss.insertSheet("Rating");
 
-    // Jika sheet masih baru atau baris 1 kosong, buat otomatis header kolom
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow([
-        "Timestamp",
-        "Nama Lengkap",
-        "Peran / Hubungan",
-        "Rating (Bintang)",
-        "Saran & Masukan",
-        "Approved"
-      ]);
-    }
+    ensureIdColumn(sheet);
 
     var data = {};
     if (e.postData && e.postData.contents) {
@@ -193,27 +410,111 @@ function doPost(e) {
       data = e.parameter;
     }
 
-    // Ambil data kiriman ulasan & rating pengunjung
-    var timestamp = new Date();
-    var name = data.name || data.nama || data.author || "Anonim";
-    var role = data.role || data.instansi || "Pengunjung Web";
-    var rating = Number(data.rating || data.stars) || 5;
-    var message = data.message || data.saran || data.quote || "";
-    var approved = (data.approved === true || data.approved === "TRUE") ? "TRUE" : "FALSE";
+    var action = String(data.action || "").toLowerCase().trim();
 
-    // Simpan baris baru ke Sheet Rating
-    sheet.appendRow([
-      timestamp,
-      name,
-      role,
-      rating,
-      message,
-      approved
-    ]);
+    // 1. APPROVE RATING BERDASARKAN PRIMARY KEY (ID) - TIDAK MEMBUAT BARIS BARU
+    if (action === "approve_rating" || action === "set_approved") {
+      var targetId = String(data.id || "").replace(/^rev-/, "").trim();
+      
+      if (!targetId) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "error",
+          message: "ID ulasan (Primary Key) diperlukan untuk approval."
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      var rows = sheet.getDataRange().getValues();
+      var foundRow = -1;
+
+      for (var i = 1; i < rows.length; i++) {
+        var rowId = String(rows[i][0]).replace(/^rev-/, "").trim();
+        if (rowId === targetId) {
+          foundRow = i + 1;
+          break;
+        }
+      }
+
+      if (foundRow !== -1) {
+        // Kolom 7 adalah kolom Approved -> Set nilai boolean true
+        sheet.getRange(foundRow, 7).setValue(true);
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "success",
+          message: "Status ulasan ID " + targetId + " berhasil diubah menjadi TRUE pada baris " + foundRow + "!",
+          row: foundRow
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Data ulasan dengan Primary Key ID " + targetId + " tidak ditemukan."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 2. HAPUS RATING BERDASARKAN PRIMARY KEY (ID)
+    if (action === "delete_rating" || action === "reject_rating") {
+      var delId = String(data.id || "").replace(/^rev-/, "").trim();
+      
+      if (!delId) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "error",
+          message: "ID ulasan diperlukan untuk penghapusan."
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      var dRows = sheet.getDataRange().getValues();
+      for (var d = 1; d < dRows.length; d++) {
+        var rId = String(dRows[d][0]).replace(/^rev-/, "").trim();
+        if (rId === delId) {
+          sheet.deleteRow(d + 1);
+          return ContentService.createTextOutput(JSON.stringify({
+            status: "success",
+            message: "Baris ID " + delId + " berhasil dihapus!"
+          })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "error",
+        message: "Baris ID " + delId + " tidak ditemukan."
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
+
+    // 3. SUBMIT RATING BARU (HANYA DENGAN DATA VALID - ANTI ANOMALI KOSONG)
+    if (action === "submit_rating" || data.type === "rating") {
+      var name = String(data.name || data.nama || data.author || "").trim();
+      var message = String(data.message || data.saran || data.quote || "").trim();
+
+      if (!name || !message) {
+        return ContentService.createTextOutput(JSON.stringify({
+          status: "error",
+          message: "Nama dan saran masukan tidak boleh kosong!"
+        })).setMimeType(ContentService.MimeType.JSON);
+      }
+
+      var nextId = getNextReviewId(sheet);
+      var timestamp = new Date();
+      var role = String(data.role || data.instansi || "Pengunjung Web").trim();
+      var rating = Number(data.rating || data.stars) || 5;
+
+      sheet.appendRow([
+        nextId,
+        timestamp,
+        name,
+        role,
+        rating,
+        message,
+        false
+      ]);
+
+      return ContentService.createTextOutput(JSON.stringify({
+        status: "success",
+        id: nextId,
+        message: "Review berhasil disimpan dengan ID " + nextId + "!"
+      })).setMimeType(ContentService.MimeType.JSON);
+    }
 
     return ContentService.createTextOutput(JSON.stringify({
-      status: "success",
-      message: "Review dan rating berhasil disimpan ke sheet Rating!"
+      status: "error",
+      message: "Aksi tidak dikenali atau payload tidak valid."
     })).setMimeType(ContentService.MimeType.JSON);
 
   } catch (error) {
@@ -233,6 +534,48 @@ function doPost(e) {
 // =============================================================================
 
 var ADMIN_SECRET = "Putra204247T"; // Ganti dengan kata sandi yang Anda inginkan
+
+function ensureIdColumn(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["id", "timestamp", "name", "role", "rating", "message", "approved"]);
+    PropertiesService.getScriptProperties().setProperty("LAST_REVIEW_ID", "0");
+    return;
+  }
+  
+  var firstCell = String(sheet.getRange(1, 1).getValue()).toLowerCase().trim();
+  if (firstCell !== "id") {
+    sheet.insertColumnBefore(1);
+    sheet.getRange(1, 1).setValue("id");
+    
+    var lastRow = sheet.getLastRow();
+    var maxId = 0;
+    for (var r = 2; r <= lastRow; r++) {
+      var assignedId = r - 1;
+      sheet.getRange(r, 1).setValue(assignedId);
+      maxId = assignedId;
+    }
+    PropertiesService.getScriptProperties().setProperty("LAST_REVIEW_ID", String(maxId));
+  }
+}
+
+function getNextReviewId(sheet) {
+  var props = PropertiesService.getScriptProperties();
+  var lastId = parseInt(props.getProperty("LAST_REVIEW_ID") || "0", 10);
+  
+  if (isNaN(lastId) || lastId === 0) {
+    var data = sheet.getDataRange().getValues();
+    for (var i = 1; i < data.length; i++) {
+      var val = parseInt(data[i][0], 10);
+      if (!isNaN(val) && val > lastId) {
+        lastId = val;
+      }
+    }
+  }
+  
+  var nextId = lastId + 1;
+  props.setProperty("LAST_REVIEW_ID", String(nextId));
+  return nextId;
+}
 
 function doGet(e) {
   try {
@@ -264,18 +607,20 @@ function doGet(e) {
     var ratingSheet = ss.getSheetByName("Rating") || ss.getSheetByName("Testimonials");
     var ratings = [];
     if (ratingSheet) {
+      ensureIdColumn(ratingSheet);
       var rRows = ratingSheet.getDataRange().getValues();
       for (var j = 1; j < rRows.length; j++) {
         var r = rRows[j];
-        if (r[1] || r[4]) {
+        if (r[0] || r[2] || r[5]) {
+          var idStr = (r[0] !== "" && r[0] !== null && r[0] !== undefined) ? String(r[0]) : String(j);
           ratings.push({
-            id: "rev-" + j,
-            timestamp: r[0] ? Utilities.formatDate(new Date(r[0]), "Asia/Jakarta", "dd/MM/yyyy HH:mm") : "",
-            author: String(r[1] || "Anonim"),
-            role: String(r[2] || "Pengunjung Web"),
-            stars: Number(r[3]) || 5,
-            quote: String(r[4] || ""),
-            approved: String(r[5]).toUpperCase() === "TRUE"
+            id: idStr,
+            timestamp: r[1] ? (r[1] instanceof Date ? Utilities.formatDate(r[1], "Asia/Jakarta", "dd/MM/yyyy HH:mm") : String(r[1])) : "",
+            author: String(r[2] || "Anonim"),
+            role: String(r[3] || "Pengunjung Web"),
+            stars: Number(r[4]) || 5,
+            quote: String(r[5] || ""),
+            approved: String(r[6]).toUpperCase() === "TRUE"
           });
         }
       }
@@ -349,14 +694,21 @@ function doPost(e) {
           .setMimeType(ContentService.MimeType.JSON);
       }
 
-      // Setujui Rating di Sheet Rating
+      // Setujui Rating di Sheet Rating (Ubah status di baris yang sama, tidak nambah baris)
       if (data.action === "approve_rating") {
         var rSheet = ss.getSheetByName("Rating") || ss.getSheetByName("Testimonials");
         if (rSheet) {
+          ensureIdColumn(rSheet);
+          var targetId = String(data.id || "").replace(/^rev-/, "").trim();
+          var targetAuthor = String(data.author || data.name || "").trim().toLowerCase();
+          var targetQuote = String(data.quote || data.message || "").trim().toLowerCase();
           var values = rSheet.getDataRange().getValues();
           for (var k = 1; k < values.length; k++) {
-            if (values[k][1] === data.author || values[k][4] === data.quote) {
-              rSheet.getRange(k + 1, 6).setValue("TRUE");
+            var rowId = String(values[k][0]).replace(/^rev-/, "").trim();
+            var rowAuthor = String(values[k][2]).trim().toLowerCase();
+            var rowQuote = String(values[k][5]).trim().toLowerCase();
+            if ((targetId && rowId === targetId) || (!targetId && (rowAuthor === targetAuthor || rowQuote === targetQuote))) {
+              rSheet.getRange(k + 1, 7).setValue("TRUE");
               break;
             }
           }
@@ -367,33 +719,51 @@ function doPost(e) {
     }
 
     // -------------------------------------------------------------
-    // 2. KIRIM RATING & MASUKAN (Sheet: Rating) - PUBLIK (TANPA SANDI)
+    // 2. KIRIM RATING & MASUKAN (Sheet: Rating) - VALIDASI ANTI-ANOMALI
     // -------------------------------------------------------------
-    if (data.action === "submit_rating" || data.type === "rating" || (data.rating && !data.email)) {
+    if (data.action === "submit_rating" || data.type === "rating") {
       var ratingSheet = ss.getSheetByName("Rating") || ss.getSheetByName("Testimonials") || ss.insertSheet("Rating");
-      
-      // Jika sheet masih kosong, buat baris header
-      if (ratingSheet.getLastRow() === 0) {
-        ratingSheet.appendRow(["timestamp", "name", "role", "rating", "message", "approved"]);
+      ensureIdColumn(ratingSheet);
+
+      var name = String(data.name || data.nama || data.author || "").trim();
+      var message = String(data.message || data.saran || data.quote || "").trim();
+
+      // Tolak data kosong atau anonim
+      if (!name || !message || name.toLowerCase() === "anonim") {
+        return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "Nama dan pesan ulasan wajib diisi!" }))
+          .setMimeType(ContentService.MimeType.JSON);
       }
 
+      var nextId = getNextReviewId(ratingSheet);
       var timestamp = new Date();
-      var name = data.name || data.nama || data.author || "Anonim";
-      var role = data.role || data.instansi || "Pengunjung Web";
+      var role = String(data.role || data.instansi || "Pengunjung Web").trim();
       var ratingVal = Number(data.rating || data.stars) || 5;
-      var message = data.message || data.saran || data.quote || "";
-      var approved = (data.approved === true || data.approved === "TRUE") ? "TRUE" : "FALSE";
 
-      ratingSheet.appendRow([
-        timestamp,
-        name,
-        role,
-        ratingVal,
-        message,
-        approved
-      ]);
+      // Cek apakah sel A2 menggunakan ARRAYFORMULA
+      var cellA2Formula = ratingSheet.getRange(2, 1).getFormula();
+      if (cellA2Formula && cellA2Formula.indexOf("ARRAYFORMULA") !== -1) {
+        var nextRow = ratingSheet.getLastRow() + 1;
+        ratingSheet.getRange(nextRow, 2, 1, 6).setValues([[
+          timestamp,
+          name,
+          role,
+          ratingVal,
+          message,
+          false
+        ]]);
+      } else {
+        ratingSheet.appendRow([
+          nextId,
+          timestamp,
+          name,
+          role,
+          ratingVal,
+          message,
+          false
+        ]);
+      }
 
-      return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Rating berhasil disimpan di Sheet Rating!" }))
+      return ContentService.createTextOutput(JSON.stringify({ status: "success", id: nextId, message: "Rating berhasil disimpan di Sheet Rating!" }))
         .setMimeType(ContentService.MimeType.JSON);
     }
 
@@ -435,6 +805,12 @@ function doPost(e) {
     if (trimmedPass === 'Putra204247T' || trimmedPass === 'KODE_RAHASIA_YAHYA' || trimmedPass === 'yahya2026') {
       setIsAuthenticated(true);
       setIsVerifying(false);
+      try {
+        localStorage.setItem('yas_admin_auth_timestamp', Date.now().toString());
+        localStorage.setItem('yas_admin_secret_code', trimmedPass);
+      } catch {
+        // ignore
+      }
       refreshReviews();
       return;
     }
@@ -460,6 +836,12 @@ function doPost(e) {
       if (resData && (resData.status === 'success' || resData.success)) {
         setIsAuthenticated(true);
         setIsVerifying(false);
+        try {
+          localStorage.setItem('yas_admin_auth_timestamp', Date.now().toString());
+          localStorage.setItem('yas_admin_secret_code', trimmedPass);
+        } catch {
+          // ignore
+        }
         refreshReviews();
         return;
       } else {
@@ -482,8 +864,10 @@ function doPost(e) {
     }
   };
 
-  // Moderation: Approve a testimonial
+  // Moderation: Approve a testimonial (Mengubah status approved di baris yang sama berdasarkan ID)
   const handleApprove = async (review: TestimonialItem) => {
+    saveApprovedReviewId(review.id);
+
     const updated = reviews.map((r) =>
       r.id === review.id ? { ...r, approved: true } : r
     );
@@ -491,20 +875,17 @@ function doPost(e) {
     localStorage.setItem('yas_portfolio_reviews', JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('yas_reviews_updated'));
 
-    // Send HTTP POST payload with secretCode to Google Apps Script as specified
-    const targetUrl = scriptUrl.trim() || SCRIPT_URL;
+    const REVIEWS_URL = 'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
     try {
-      await fetch(targetUrl, {
+      await fetch(REVIEWS_URL, {
         method: 'POST',
         mode: 'no-cors',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify({
           action: 'approve_rating',
+          id: String(review.id),
           secret: password.trim() || 'Putra204247T',
-          author: review.author,
-          name: review.author,
-          quote: review.quote,
-          approved: 'TRUE',
+          approved: true,
         }),
       });
     } catch (err) {
@@ -513,23 +894,40 @@ function doPost(e) {
 
     setModToast(
       lang === 'ID'
-        ? `Ulasan dari ${review.author} berhasil disetujui (Approved: TRUE)!`
-        : `Review from ${review.author} approved!`
+        ? `Ulasan #${review.id} dari ${review.author} berhasil disetujui!`
+        : `Review #${review.id} from ${review.author} approved!`
     );
     setTimeout(() => setModToast(''), 3000);
   };
 
-  // Moderation: Reject / Delete a testimonial
+  // Moderation: Reject / Delete a testimonial (Menghapus baris ulasan di spreadsheet berdasarkan ID)
   const handleReject = async (review: TestimonialItem) => {
+    removeApprovedReviewId(review.id);
     const updated = reviews.filter((r) => r.id !== review.id);
     setReviews(updated);
     localStorage.setItem('yas_portfolio_reviews', JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('yas_reviews_updated'));
 
+    const REVIEWS_URL = 'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
+    try {
+      await fetch(REVIEWS_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({
+          action: 'delete_rating',
+          id: String(review.id),
+          secret: password.trim() || 'Putra204247T',
+        }),
+      });
+    } catch (err) {
+      console.warn('Google Apps Script delete warning:', err);
+    }
+
     setModToast(
       lang === 'ID'
-        ? `Ulasan dari ${review.author} telah ditolak/dihapus.`
-        : `Review from ${review.author} removed.`
+        ? `Ulasan #${review.id} dari ${review.author} telah dihapus.`
+        : `Review #${review.id} from ${review.author} removed.`
     );
     setTimeout(() => setModToast(''), 3000);
   };
@@ -546,17 +944,21 @@ function doPost(e) {
     const generatedId = `PRJ-${Date.now().toString().slice(-4)}`;
     const secretPass = password.trim() || 'Putra204247T';
 
-    const tagsArray = projectTags
-      .split(',')
-      .map((t) => t.trim())
-      .filter(Boolean);
+    const tagsArray = Array.from(
+      new Set(
+        projectTags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      )
+    );
 
     const newProjectItem = {
       id: generatedId,
       title: projectTitle.trim(),
       desc: projectDesc.trim(),
       tags: tagsArray.length > 0 ? tagsArray : ['Full-Stack'],
-      image: projectImage.trim(),
+      image: formatGoogleDriveUrl(projectImage.trim()),
       github: projectGithub.trim(),
       demo: projectDemo.trim(),
       category: projectCategory,
@@ -857,7 +1259,7 @@ function doPost(e) {
 
                     <button
                       type="button"
-                      onClick={() => setIsAuthenticated(false)}
+                      onClick={handleLogout}
                       className={`text-xs font-bold flex items-center gap-1 cursor-pointer px-3 py-2 rounded-xl transition-colors ${
                         darkMode
                           ? 'text-red-400 hover:text-red-300 hover:bg-red-500/10'
@@ -978,9 +1380,9 @@ function doPost(e) {
                       </div>
                     ) : (
                       <div className="flex flex-col gap-3">
-                        {displayedReviews.map((item) => (
+                        {displayedReviews.map((item, rIdx) => (
                           <div
-                            key={item.id}
+                            key={`${item.id}-${rIdx}`}
                             className={`p-4 rounded-2xl border transition-all ${
                               item.approved
                                 ? darkMode
