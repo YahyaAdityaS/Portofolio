@@ -1,30 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-
-// Extended ProjectItem interface guaranteeing full type safety across environments
-export interface ProjectItem {
-  id: string;
-  category?: 'all' | 'fullstack' | 'backend' | 'designsystem' | string;
-  year?: string;
-  badge?: string;
-  badgeBg?: string;
-  badgeText?: string;
-  title: string;
-  subtitle?: string;
-  description?: string;
-  tags?: string[];
-  status?: string;
-  actionText?: string;
-  type?: 'plagin' | 'karsa' | 'finflow' | 'nusantara' | string;
-  imageUrl?: string;
-  githubUrl?: string;
-  demoUrl?: string;
-  image?: string;
-  github?: string;
-  demo?: string;
-  liveUrl?: string;
-  [key: string]: any;
-}
+import { ProjectItem } from '../data/portfolioData';
 
 function extractGoogleDriveId(url: string): string | null {
   if (!url || typeof url !== 'string') return null;
@@ -53,6 +29,20 @@ function getGoogleDriveFallbackUrl(url?: string): string {
   return url;
 }
 
+function getCategoryFallbackImage(category?: string): string {
+  const cat = (category || '').toLowerCase();
+  if (cat.includes('photo') || cat.includes('foto')) {
+    return 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (cat.includes('graph') || cat.includes('grafis')) {
+    return 'https://images.unsplash.com/photo-1626785774573-4b799315345d?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (cat.includes('web') || cat.includes('dev')) {
+    return 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80';
+  }
+  return 'https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?auto=format&fit=crop&w=1200&q=80';
+}
+
 interface ProjectModalProps {
   project: ProjectItem | null;
   onClose: () => void;
@@ -61,7 +51,6 @@ interface ProjectModalProps {
 }
 
 export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, lang, darkMode = false }) => {
-  // Lock body scroll when modal is open and handle Escape key
   useEffect(() => {
     if (project) {
       document.body.style.overflow = 'hidden';
@@ -78,204 +67,172 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
     }
   }, [project, onClose]);
 
+  if (!project) return null;
+
+  const rawImage = project.imageUrl || project.image || '';
+  const primaryImg = formatGoogleDriveUrl(rawImage);
+  const fallbackImg = getCategoryFallbackImage(project.category);
+  const imageSrc = primaryImg || fallbackImg;
+
+  const githubLink = (project.githubUrl || project.github || '').trim();
+  const demoLink = (project.demoUrl || project.demo || '').trim();
+  const hasGithub = githubLink.length > 0;
+  const hasDemo = demoLink.length > 0;
+
   return (
     <AnimatePresence>
-      {project && (
+      <div
+        key="modal-backdrop"
+        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto"
+        onClick={onClose}
+      >
         <motion.div
-          key="modal-backdrop"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md"
-          onClick={onClose}
+          key="modal-card"
+          initial={{ opacity: 0, scale: 0.9, y: 30 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          transition={{
+            type: 'spring',
+            damping: 26,
+            stiffness: 340,
+          }}
+          className={`rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl border relative max-h-[90vh] overflow-y-auto flex flex-col transition-colors ${
+            darkMode
+              ? 'bg-[#111a2e] border-[#23324f] shadow-[0_25px_60px_rgba(0,0,0,0.8)]'
+              : 'bg-white border-slate-200 shadow-[0_25px_60px_rgba(37,99,235,0.15)]'
+          }`}
+          onClick={(e) => e.stopPropagation()}
         >
-          <motion.div
-            key="modal-card"
-            initial={{ opacity: 0, scale: 0.86, y: 35 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            transition={{
-              type: 'spring',
-              damping: 26,
-              stiffness: 340,
-            }}
-            className={`rounded-3xl max-w-2xl w-full p-6 sm:p-8 shadow-2xl border overflow-hidden relative max-h-[90vh] flex flex-col transition-colors ${
+          {/* Close Button */}
+          <motion.button
+            type="button"
+            onClick={onClose}
+            whileHover={{ scale: 1.15, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
+            className={`absolute top-4 sm:top-5 right-4 sm:right-5 w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer z-20 ${
               darkMode
-                ? 'bg-[#111a2e] border-[#23324f] shadow-[0_25px_60px_rgba(0,0,0,0.8)]'
-                : 'bg-white border-slate-200 shadow-[0_25px_60px_rgba(37,99,235,0.15)]'
+                ? 'bg-[#16223b] hover:bg-[#23324f] text-white border border-[#334155]'
+                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
             }`}
-            onClick={(e) => e.stopPropagation()}
           >
-            {/* Close Button with fluid motion */}
-            <motion.button
-              type="button"
-              onClick={onClose}
-              whileHover={{ scale: 1.15, rotate: 90 }}
-              whileTap={{ scale: 0.9 }}
-              className={`absolute top-5 right-5 w-10 h-10 rounded-full flex items-center justify-center transition-colors cursor-pointer z-10 ${
-                darkMode
-                  ? 'bg-[#16223b] hover:bg-[#23324f] text-white border border-[#334155]'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200'
-              }`}
-            >
-              <span className="material-symbols-outlined text-xl">close</span>
-            </motion.button>
+            <span className="material-symbols-outlined text-xl">close</span>
+          </motion.button>
 
-            {/* Header Badge */}
-            <motion.div
-              initial={{ opacity: 0, x: -15 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="flex items-center gap-2 mb-3"
-            >
-              <span className="px-3.5 py-1 rounded-full text-xs font-black bg-[#bef264] text-[#080c16] shadow-xs">
-                {project.badge}
-              </span>
-              <span className={`text-xs font-bold ${darkMode ? 'text-[#94a3b8]' : 'text-slate-500'}`}>
-                • {project.year}
-              </span>
+          {/* Header Badge Row */}
+          <motion.div
+            initial={{ opacity: 0, x: -15 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="flex items-center gap-2 mb-3 pr-12"
+          >
+            <span className="px-3.5 py-1 rounded-full text-xs font-black bg-[#bef264] text-[#080c16] shadow-xs">
+              {project.badge || project.category || 'Featured'}
+            </span>
+            <span className={`text-xs font-bold ${darkMode ? 'text-[#94a3b8]' : 'text-slate-500'}`}>
+              • {project.year || '2026'}
+            </span>
+            {project.status && (
               <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
                 darkMode ? 'bg-[#16223b] text-[#38bdf8]' : 'bg-blue-50 text-primary'
               }`}>
                 {project.status}
               </span>
-            </motion.div>
+            )}
+          </motion.div>
 
-            {/* Title */}
-            <motion.h3
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
-              className={`text-2xl sm:text-3xl font-black tracking-tight mb-2.5 leading-tight ${
-                darkMode ? 'text-white' : 'text-[#131b2e]'
-              }`}
-            >
-              {project.title}
-            </motion.h3>
+          {/* Title */}
+          <motion.h3
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className={`text-2xl sm:text-3xl font-black tracking-tight mb-2.5 leading-tight ${
+              darkMode ? 'text-white' : 'text-[#131b2e]'
+            }`}
+          >
+            {project.title}
+          </motion.h3>
 
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className={`text-sm sm:text-base mb-5 font-medium leading-relaxed ${
-                darkMode ? 'text-[#cbd5e1]' : 'text-slate-600'
-              }`}
-            >
-              {project.description}
-            </motion.p>
+          {/* Description */}
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+            className={`text-sm sm:text-base mb-5 font-medium leading-relaxed ${
+              darkMode ? 'text-[#cbd5e1]' : 'text-slate-600'
+            }`}
+          >
+            {project.description}
+          </motion.p>
 
-            {/* Technical Highlights with animated entries */}
+          {/* Image Thumbnail (Menggantikan Spesifikasi Arsitektur & Performa) */}
+          {imageSrc && (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
-              className={`rounded-2xl p-4 sm:p-5 mb-5 border space-y-3 ${
-                darkMode
-                  ? 'bg-[#0d1527] border-[#23324f]'
-                  : 'bg-[#f2f3ff] border-[#eaedff]'
+              className={`w-full h-52 sm:h-64 rounded-2xl overflow-hidden mb-5 border relative bg-black/30 shadow-inner ${
+                darkMode ? 'border-[#23324f]' : 'border-slate-200'
               }`}
             >
-              <h4
-                className={`text-xs font-bold uppercase tracking-wider flex items-center gap-2 ${
-                  darkMode ? 'text-[#38bdf8]' : 'text-primary'
-                }`}
-              >
-                <span className="material-symbols-outlined text-base">architecture</span>
-                <span>{lang === 'ID' ? 'Spesifikasi Arsitektur & Performa' : 'Architecture & Performance Specs'}</span>
-              </h4>
-              <ul
-                className={`text-xs sm:text-sm space-y-2.5 font-medium ${
-                  darkMode ? 'text-[#cbd5e1]' : 'text-slate-700'
-                }`}
-              >
-                <li className="flex items-center gap-2.5">
-                  <span
-                    className={`material-symbols-outlined text-base shrink-0 ${
-                      darkMode ? 'text-[#bef264]' : 'text-primary'
-                    }`}
-                  >
-                    verified
-                  </span>
-                  <span>100% Core Web Vitals, Sub-second Initial Page Render & Zero Layout Shift</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <span
-                    className={`material-symbols-outlined text-base shrink-0 ${
-                      darkMode ? 'text-[#bef264]' : 'text-primary'
-                    }`}
-                  >
-                    verified
-                  </span>
-                  <span>Modular Atomic Component Model with Strict End-to-End Type Safety</span>
-                </li>
-                <li className="flex items-center gap-2.5">
-                  <span
-                    className={`material-symbols-outlined text-base shrink-0 ${
-                      darkMode ? 'text-[#bef264]' : 'text-primary'
-                    }`}
-                  >
-                    verified
-                  </span>
-                  <span>Optimized REST/GraphQL APIs with Automated GitHub Actions CI/CD Pipeline</span>
-                </li>
-              </ul>
+              <img
+                src={imageSrc}
+                alt={project.title}
+                className="w-full h-full object-cover object-center transition-transform duration-500 hover:scale-105"
+                referrerPolicy="no-referrer"
+                onError={(e) => {
+                  const target = e.currentTarget;
+                  const driveFallback = getGoogleDriveFallbackUrl(rawImage);
+                  if (driveFallback && target.src !== driveFallback) {
+                    target.src = driveFallback;
+                  } else if (fallbackImg && target.src !== fallbackImg) {
+                    target.src = fallbackImg;
+                  }
+                }}
+              />
             </motion.div>
+          )}
 
-            {/* Tags */}
-            {project.tags && project.tags.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.3 }}
-                className="flex flex-wrap gap-2 mb-6"
-              >
-                {(project.tags || []).map((tag, tagIdx) => (
-                  <span
-                    key={`${project.id || 'modal'}-tag-${tag}-${tagIdx}`}
-                    className={`text-xs font-bold px-3 py-1 rounded-full transition-transform hover:scale-105 ${
-                      darkMode
-                        ? 'bg-[#16223b] border border-[#334155] text-white hover:border-[#38bdf8]'
-                        : 'bg-[#eaedff] text-[#131b2e] hover:bg-blue-100'
-                    }`}
-                  >
-                    {tag}
-                  </span>
-                ))}
-              </motion.div>
-            )}
-
-            {/* Project Image in Modal if available */}
-            {project.imageUrl && (
-              <div className="w-full h-48 sm:h-56 rounded-2xl overflow-hidden mb-4 border border-[#23324f] relative bg-black/40">
-                <img
-                  src={formatGoogleDriveUrl(project.imageUrl)}
-                  alt={project.title}
-                  className="w-full h-full object-cover"
-                  referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    const fallback = getGoogleDriveFallbackUrl(project.imageUrl);
-                    if (fallback && e.currentTarget.src !== fallback) {
-                      e.currentTarget.src = fallback;
-                    }
-                  }}
-                />
-              </div>
-            )}
-
-            {/* Modal CTA Buttons */}
-            <div
-              className={`flex flex-wrap items-center justify-between gap-3 pt-4 border-t mt-auto ${
-                darkMode ? 'border-[#1e293b]' : 'border-slate-100'
-              }`}
+          {/* Tags */}
+          {project.tags && project.tags.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="flex flex-wrap gap-2 mb-6"
             >
-              <div className="flex items-center gap-2">
-                {project.githubUrl && (
+              {(project.tags || []).map((tag, tagIdx) => (
+                <span
+                  key={`${project.id || 'modal'}-tag-${tag}-${tagIdx}`}
+                  className={`text-xs font-bold px-3 py-1 rounded-full transition-transform hover:scale-105 ${
+                    darkMode
+                      ? 'bg-[#16223b] border border-[#334155] text-white hover:border-[#38bdf8]'
+                      : 'bg-[#eaedff] text-[#131b2e] hover:bg-blue-100'
+                  }`}
+                >
+                  {tag}
+                </span>
+              ))}
+            </motion.div>
+          )}
+
+          {/* Modal Footer CTA Buttons:
+              - Sebelah kiri: Button GitHub dan Live Demo (jika ada di database)
+              - Sebelah kanan: Close dan Inquire Project
+              - Tampilan mobile: Tersusun ke bawah (flex-col) agar leluasa di layar kecil */}
+          <div
+            className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-5 border-t mt-auto ${
+              darkMode ? 'border-[#1e293b]' : 'border-slate-100'
+            }`}
+          >
+            {/* Bagian Kiri: GitHub & Live Demo (hanya tampil jika ada di database) */}
+            {(hasGithub || hasDemo) ? (
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {hasGithub && (
                   <a
-                    href={project.githubUrl}
+                    href={githubLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full border text-xs font-bold transition-all ${
+                    className={`inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full border text-xs font-bold transition-all cursor-pointer ${
                       darkMode
                         ? 'border-[#334155] text-white hover:bg-[#1e293b]'
                         : 'border-slate-200 text-slate-700 hover:bg-slate-100'
@@ -285,44 +242,47 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
                     <span>GitHub</span>
                   </a>
                 )}
-                {project.demoUrl && (
+                {hasDemo && (
                   <a
-                    href={project.demoUrl}
+                    href={demoLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#bef264] hover:bg-[#a8e04b] text-[#080c16] text-xs font-extrabold shadow-sm transition-all"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-full bg-[#bef264] hover:bg-[#a8e04b] text-[#080c16] text-xs font-extrabold shadow-sm transition-all cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">open_in_new</span>
                     <span>Live Demo</span>
                   </a>
                 )}
               </div>
+            ) : (
+              <div className="hidden sm:block" />
+            )}
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors cursor-pointer ${
-                    darkMode
-                      ? 'text-[#cbd5e1] hover:bg-[#16223b]'
-                      : 'text-slate-600 hover:bg-slate-100'
-                  }`}
-                >
-                  {lang === 'ID' ? 'Tutup' : 'Close'}
-                </button>
-                <a
-                  href="#diskusi-proyek"
-                  onClick={onClose}
-                  className="inline-flex items-center gap-1.5 px-6 py-2.5 rounded-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs sm:text-sm font-bold shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer"
-                >
-                  <span>{lang === 'ID' ? 'Diskusikan Proyek' : 'Inquire Project'}</span>
-                  <span className="material-symbols-outlined text-sm">arrow_forward</span>
-                </a>
-              </div>
+            {/* Bagian Kanan: Close & Inquire Project */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors cursor-pointer text-center ${
+                  darkMode
+                    ? 'text-[#cbd5e1] hover:bg-[#16223b]'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                {lang === 'ID' ? 'Tutup' : 'Close'}
+              </button>
+              <a
+                href="#diskusi-proyek"
+                onClick={onClose}
+                className="inline-flex items-center justify-center gap-1.5 px-6 py-2.5 rounded-full bg-[#2563eb] hover:bg-[#1d4ed8] text-white text-xs sm:text-sm font-bold shadow-md hover:-translate-y-0.5 active:translate-y-0 transition-all cursor-pointer text-center"
+              >
+                <span>{lang === 'ID' ? 'Diskusikan Proyek' : 'Inquire Project'}</span>
+                <span className="material-symbols-outlined text-sm">arrow_forward</span>
+              </a>
             </div>
-          </motion.div>
+          </div>
         </motion.div>
-      )}
+      </div>
     </AnimatePresence>
   );
 };

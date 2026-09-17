@@ -53,41 +53,93 @@ function getGoogleDriveFallbackUrl(url?: string): string {
   return url;
 }
 
+function getCategoryFallbackImage(category?: string): string {
+  const cat = (category || '').toLowerCase();
+  if (cat.includes('photo') || cat.includes('foto')) {
+    return 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (cat.includes('graph') || cat.includes('grafis')) {
+    return 'https://images.unsplash.com/photo-1626785774573-4b799315345d?auto=format&fit=crop&w=1200&q=80';
+  }
+  if (cat.includes('web') || cat.includes('dev')) {
+    return 'https://images.unsplash.com/photo-1460925895917-afdab827c52f?auto=format&fit=crop&w=1200&q=80';
+  }
+  return 'https://images.unsplash.com/photo-1581291518857-4e27b48ff24e?auto=format&fit=crop&w=1200&q=80';
+}
+
 interface ProjectsProps {
   lang: 'ID' | 'EN';
   darkMode: boolean;
   onSelectProject: (project: ProjectItem) => void;
 }
 
-const APPS_SCRIPT_PROJECTS_URL = 'https://script.google.com/macros/s/AKfycbwEXPJrr6eOD8X7HAMMtX86loDB0EaTPpnwK3wPl2QSugXa1IZ5SnK745AEM40BlwJ5/exec';
+const APPS_SCRIPT_PROJECTS_URL = 'https://script.google.com/macros/s/AKfycbzlNIlLj2wW17A14t6amS6wCVY69b-lF12mufIMHRECaFLYE9BDJ1LDrjtJdFhxMClg/exec';
 
 export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProject }) => {
   const [activeFilter, setActiveFilter] = useState<string>('all');
-  const [allProjects, setAllProjects] = useState<ProjectItem[]>(PROJECTS);
-  const [isLoadingSheets, setIsLoadingSheets] = useState<boolean>(false);
+  
+  // Instant Hydration: Load immediately from cache (purely spreadsheet data)
+  const [allProjects, setAllProjects] = useState<ProjectItem[]>(() => {
+    try {
+      const cached = localStorage.getItem('yas_portfolio_projects_cache_v2');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const filtered = parsed.filter(
+            (p) =>
+              !['karsa', 'finflow', 'nusantara'].includes(p.id) &&
+              !['Karsa Design System', 'FinFlow Core Banking Portal', 'Nusantara Creative Identity'].includes(p.title)
+          );
+          if (filtered.length > 0) return filtered;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return [];
+  });
+
+  // Only show skeleton wireframe if no projects exist at all (which never happens because of instant hydration)
+  const [isLoadingSheets, setIsLoadingSheets] = useState<boolean>(() => allProjects.length === 0);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  const CARDS_PER_PAGE = 3;
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12000);
 
     const fetchSheetProjects = async () => {
       try {
-        setIsLoadingSheets(true);
-        const res = await fetch(APPS_SCRIPT_PROJECTS_URL);
+        const res = await fetch(APPS_SCRIPT_PROJECTS_URL, {
+          signal: controller.signal,
+        });
         const data = await res.json();
 
         if (isMounted && data && Array.isArray(data.projects) && data.projects.length > 0) {
-          // Map google sheets row data into ProjectItem shape
+          // Map google sheets row data into ProjectItem shape with standardized categories
           const sheetMapped: ProjectItem[] = data.projects.map((item: any, idx: number) => {
-            const rawCat = (item.category || '').toLowerCase();
-            let cat: 'all' | 'fullstack' | 'backend' | 'designsystem' = 'fullstack';
-            if (rawCat.includes('backend') || rawCat.includes('ai')) cat = 'backend';
-            else if (rawCat.includes('design') || rawCat.includes('ui')) cat = 'designsystem';
+            const rawCat = (item.category || '').trim();
+            const lower = rawCat.toLowerCase();
+            let cat = 'UI/UX Design';
+            if (lower.includes('web') || lower.includes('dev') || lower.includes('fullstack') || lower.includes('backend')) {
+              cat = 'Web Development';
+            } else if (lower.includes('graph') || lower.includes('grafis')) {
+              cat = 'Graphic Design';
+            } else if (lower.includes('photo') || lower.includes('foto') || lower.includes('camera')) {
+              cat = 'Photography';
+            } else if (lower.includes('ui') || lower.includes('ux') || lower.includes('design')) {
+              cat = 'UI/UX Design';
+            } else if (rawCat) {
+              cat = rawCat;
+            }
 
             const parsedTags = Array.isArray(item.tags)
               ? item.tags
               : typeof item.tags === 'string'
               ? item.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
-              : ['React', 'TypeScript'];
+              : [cat, 'Showcase'];
             const rawTags = Array.from(
               new Set(parsedTags.map((t: any) => String(t).trim()).filter(Boolean))
             );
@@ -95,16 +147,16 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
             return {
               id: item.id ? String(item.id).trim() : `sheet-prj-${idx}`,
               category: cat,
-              year: item.year || new Date().getFullYear().toString(),
-              badge: item.badge || (cat === 'backend' ? 'AI & Backend' : cat === 'designsystem' ? 'UI System' : 'Web Application'),
+              year: item.year ? String(item.year).trim() : (item.tahun ? String(item.tahun).trim() : '2026'),
+              badge: item.badge || cat,
               badgeBg: 'bg-primary text-on-primary',
               badgeText: 'bg-primary-container',
               title: item.title || 'Untitled Project',
-              subtitle: item.subtitle || item.category || 'Portfolio Showcase',
+              subtitle: item.subtitle || cat || 'Portfolio Showcase',
               description: item.desc || item.description || '',
-              tags: rawTags.length > 0 ? rawTags : ['Full-Stack', 'Production'],
+              tags: rawTags.length > 0 ? rawTags : [cat, 'Production'],
               status: item.status || 'Live Production',
-              actionText: lang === 'ID' ? 'Lihat Detail Proyek' : 'View Project Case',
+              actionText: 'Lihat Detail',
               type: 'sheet-project',
               imageUrl: formatGoogleDriveUrl(item.image || item.imageUrl || ''),
               githubUrl: item.github || item.githubUrl || '',
@@ -112,83 +164,134 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
             };
           });
 
-          // Ensure unique IDs across all loaded projects
-          const seenIds = new Set<string>();
-          const uniqueProjects = sheetMapped.map((p, pIdx) => {
-            let uniqueId = p.id;
-            if (seenIds.has(uniqueId)) {
-              uniqueId = `${uniqueId}-${pIdx}`;
-            }
-            seenIds.add(uniqueId);
-            return {
-              ...p,
-              id: uniqueId,
-              tags: Array.from(new Set((p.tags || []).map((t) => String(t).trim()).filter(Boolean))),
-            };
-          });
-
-          // Prepend projects from Google Sheet, keep original sample projects as fallback/baseline
-          setAllProjects(uniqueProjects);
+          // Hanya gunakan data proyek murni dari database Google Sheets
+          setAllProjects(sheetMapped);
+          try {
+            localStorage.setItem('yas_portfolio_projects_cache_v2', JSON.stringify(sheetMapped));
+          } catch {
+            // ignore
+          }
         }
       } catch (err) {
-        console.warn('Gagal memuat proyek dari Google Sheets, menggunakan data fallback lokal:', err);
+        // Fallback gracefully without breaking UI or blanking cards
       } finally {
         if (isMounted) setIsLoadingSheets(false);
+        clearTimeout(timeoutId);
       }
     };
 
     fetchSheetProjects();
 
+    // Listen for local admin updates for instantaneous 0ms reflection
+    const handleSync = () => {
+      try {
+        const cached = localStorage.getItem('yas_portfolio_projects_cache_v2');
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            const filtered = parsed.filter(
+              (p) =>
+                !['karsa', 'finflow', 'nusantara'].includes(p.id) &&
+                !['Karsa Design System', 'FinFlow Core Banking Portal', 'Nusantara Creative Identity'].includes(p.title)
+            );
+            setAllProjects(filtered);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener('yas_projects_updated', handleSync);
+
     return () => {
       isMounted = false;
+      controller.abort();
+      clearTimeout(timeoutId);
+      window.removeEventListener('yas_projects_updated', handleSync);
     };
-  }, [lang]);
+  }, []); // Run on mount only - changing language does NOT trigger loading or skeleton!
 
+  // Standardized categories matching requirement
   const filters = [
     { id: 'all', label: lang === 'ID' ? 'Semua' : 'All' },
-    { id: 'fullstack', label: 'Full-Stack' },
-    { id: 'backend', label: 'AI & Backend' },
-    { id: 'designsystem', label: 'Design System' },
+    { id: 'uiux', label: 'UI/UX Design' },
+    { id: 'webdev', label: 'Web Development' },
+    { id: 'graphic', label: 'Graphic Design' },
+    { id: 'photography', label: 'Photography' },
   ];
+
+  const handleFilterChange = (filterId: string) => {
+    setActiveFilter(filterId);
+    setCurrentPage(1);
+  };
+
+  const isCategoryMatch = (project: ProjectItem, filterId: string) => {
+    if (filterId === 'all') return true;
+    const cat = (project.category || '').toLowerCase().trim();
+    const tags = (project.tags || []).map((t) => t.toLowerCase()).join(' ');
+
+    if (filterId === 'uiux') {
+      return (
+        cat === 'ui/ux design' ||
+        cat.includes('ui') ||
+        cat.includes('ux') ||
+        cat.includes('design') ||
+        cat.includes('figma') ||
+        tags.includes('ui') ||
+        tags.includes('ux') ||
+        tags.includes('figma')
+      );
+    }
+    if (filterId === 'webdev') {
+      return (
+        cat === 'web development' ||
+        cat.includes('web') ||
+        cat.includes('dev') ||
+        cat.includes('fullstack') ||
+        cat.includes('backend') ||
+        tags.includes('web') ||
+        tags.includes('react') ||
+        tags.includes('next')
+      );
+    }
+    if (filterId === 'graphic') {
+      return (
+        cat === 'graphic design' ||
+        cat.includes('graphic') ||
+        cat.includes('grafis') ||
+        cat.includes('visual') ||
+        cat.includes('brand') ||
+        tags.includes('graphic') ||
+        tags.includes('brand')
+      );
+    }
+    if (filterId === 'photography') {
+      return (
+        cat === 'photography' ||
+        cat.includes('photo') ||
+        cat.includes('foto') ||
+        cat.includes('camera') ||
+        tags.includes('photo')
+      );
+    }
+    return cat === filterId;
+  };
 
   const filteredProjects = activeFilter === 'all'
     ? allProjects
-    : allProjects.filter((p) => p.category === activeFilter);
+    : allProjects.filter((p) => isCategoryMatch(p, activeFilter));
 
-  const getBannerHeaderStyle = (type?: string) => {
-    switch (type) {
-      case 'plagin':
-        return {
-          bg: darkMode ? 'bg-[#1e3a8a] border-blue-900' : 'bg-[#1d4ed8] border-blue-800',
-          accent: 'bg-[#bef264]',
-          yearBg: darkMode ? 'bg-[#2563eb]' : 'bg-[#2563eb]',
-        };
-      case 'karsa':
-        return {
-          bg: darkMode ? 'bg-[#581c87] border-purple-800' : 'bg-[#4c2e99] border-purple-700',
-          accent: 'bg-[#c084fc]',
-          yearBg: darkMode ? 'bg-[#7e22ce]' : 'bg-[#7e22ce]',
-        };
-      case 'finflow':
-        return {
-          bg: darkMode ? 'bg-[#0f172a] border-[#334155]' : 'bg-[#131b2e] border-slate-700',
-          accent: 'bg-[#38bdf8]',
-          yearBg: darkMode ? 'bg-[#1e293b] border border-[#334155] text-[#38bdf8]' : 'bg-slate-700',
-        };
-      case 'nusantara':
-        return {
-          bg: darkMode ? 'bg-[#1e293b] border-[#334155]' : 'bg-[#23324f] border-slate-600',
-          accent: 'bg-[#38bdf8]',
-          yearBg: darkMode ? 'bg-[#111a2e] border border-[#334155] text-[#bef264]' : 'bg-slate-700',
-        };
-      default:
-        return {
-          bg: darkMode ? 'bg-[#0f172a] border-[#334155]' : 'bg-[#1e3a8a] border-blue-900',
-          accent: 'bg-[#bef264]',
-          yearBg: darkMode ? 'bg-[#1e293b] text-[#bef264]' : 'bg-[#2563eb] text-white',
-        };
-    }
-  };
+  const totalPages = Math.ceil(filteredProjects.length / CARDS_PER_PAGE) || 1;
+  const startIndex = (currentPage - 1) * CARDS_PER_PAGE;
+  const paginatedProjects = filteredProjects.slice(startIndex, startIndex + CARDS_PER_PAGE);
+
+  // Layout logic: 3 cards per row; when 2 cards exist, stretch to fill full row width (no blank space)
+  const gridColsClass = paginatedProjects.length === 1
+    ? 'grid-cols-1 max-w-xl mx-auto'
+    : paginatedProjects.length === 2
+    ? 'grid-cols-1 md:grid-cols-2'
+    : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
 
   return (
     <section className="w-full py-space-xl transition-colors duration-300 scroll-mt-28" id="proyek-pilihan">
@@ -204,20 +307,26 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
                   : 'bg-[#dce1ff] text-primary'
               }`}
             >
+              <span className="material-symbols-outlined text-sm">stars</span>
               <span className="tracking-wider">SELECTED ARCHIVES</span>
             </div>
             <h2
-              className={`text-3xl sm:text-4xl font-extrabold tracking-tight ${
+              className={`text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight ${
                 darkMode ? 'text-white' : 'text-[#131b2e]'
               }`}
             >
               {lang === 'ID' ? 'Proyek Unggulan & Studi Kasus' : 'Featured Projects & Case Studies'}
             </h2>
+            <p className={`text-xs sm:text-sm mt-1.5 font-medium ${darkMode ? 'text-[#94a3b8]' : 'text-slate-500'}`}>
+              {lang === 'ID'
+                ? `Menampilkan 3 karya pilihan per halaman untuk eksplorasi yang cepat dan fokus.`
+                : `Presenting 3 curated projects per page for clean, focused exploration.`}
+            </p>
           </div>
 
-          {/* Filter Pill Controls */}
+          {/* Filter Pill Controls - Tabbing versi mobile turun ke bawah (wrap), tidak di-scroll horizontal */}
           <div
-            className={`flex flex-wrap items-center gap-1.5 p-1.5 rounded-full border transition-colors ${
+            className={`flex flex-wrap items-center gap-1.5 p-1.5 rounded-2xl sm:rounded-full border transition-colors self-start lg:self-auto ${
               darkMode
                 ? 'bg-[#111a2e] border-[#23324f]'
                 : 'bg-[#f2f3ff] border-[#eaedff]'
@@ -227,8 +336,8 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
               <button
                 key={filter.id}
                 type="button"
-                onClick={() => setActiveFilter(filter.id)}
-                className={`px-4 py-2 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                onClick={() => handleFilterChange(filter.id)}
+                className={`px-3 py-1.5 sm:px-3.5 sm:py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   activeFilter === filter.id
                     ? 'bg-[#2563eb] text-white shadow-sm'
                     : darkMode
@@ -242,289 +351,235 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
           </div>
         </div>
 
-        {/* Projects Bento Grid (4 High Impact Cards) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-space-lg">
-          {filteredProjects.map((project, pIndex) => {
-            const headerStyle = getBannerHeaderStyle(project.type);
-
-            return (
+        {/* Loading Wireframe Skeleton State */}
+        {isLoadingSheets ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+            {[1, 2, 3].map((skeletonIdx) => (
               <div
-                key={`${project.id}-${pIndex}`}
-                className={`rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all group flex flex-col justify-between border ${
+                key={`skeleton-${skeletonIdx}`}
+                className={`relative rounded-[28px] overflow-hidden min-h-[440px] sm:min-h-[480px] p-5 sm:p-6 flex flex-col justify-between border animate-pulse ${
                   darkMode
-                    ? 'bg-[#111a2e] border-[#1e293b]'
-                    : 'bg-white border-[#eaedff]'
+                    ? 'bg-[#0f172a] border-[#1e293b]'
+                    : 'bg-slate-100 border-slate-200'
                 }`}
               >
-                <div>
-                  {/* Banner Header */}
-                  <div className={`text-white p-space-md flex items-center justify-between border-b ${headerStyle.bg}`}>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2.5 h-2.5 rounded-full ${headerStyle.accent}`}></span>
-                      <span className="text-xs uppercase tracking-wider font-extrabold text-white">
-                        {project.badge}
-                      </span>
-                    </div>
-                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${headerStyle.yearBg}`}>
-                      {project.year}
+                {/* Top Badges Wireframe */}
+                <div className="flex items-center justify-between">
+                  <div className={`h-6 w-24 rounded-full ${darkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                  <div className={`h-6 w-14 rounded-full ${darkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                </div>
+
+                {/* Center Wireframe Subtle Icon */}
+                <div className="flex items-center justify-center my-auto">
+                  <div className={`w-12 h-12 rounded-2xl ${darkMode ? 'bg-slate-800/60' : 'bg-slate-200/80'} flex items-center justify-center`}>
+                    <span className={`material-symbols-outlined text-2xl ${darkMode ? 'text-slate-700' : 'text-slate-300'}`}>
+                      image
+                    </span>
+                  </div>
+                </div>
+
+                {/* Bottom Text Area Wireframe */}
+                <div className="flex flex-col pt-4">
+                  <div className={`h-6 w-3/4 rounded-lg mb-2.5 ${darkMode ? 'bg-slate-700' : 'bg-slate-300'}`} />
+                  <div className={`h-4 w-full rounded-md mb-1.5 ${darkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                  <div className={`h-4 w-2/3 rounded-md mb-4 ${darkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                  <div className="flex items-center gap-2 mb-4">
+                    <div className={`h-5 w-20 rounded-full ${darkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                    <div className={`h-5 w-16 rounded-full ${darkMode ? 'bg-slate-800' : 'bg-slate-200'}`} />
+                  </div>
+                  <div className={`h-11 w-full rounded-full ${darkMode ? 'bg-slate-700' : 'bg-slate-300'}`} />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : filteredProjects.length === 0 ? (
+          <div className={`p-12 text-center rounded-[28px] border ${
+            darkMode ? 'bg-[#0f172a] border-[#1e293b] text-slate-400' : 'bg-slate-50 border-slate-200 text-slate-600'
+          }`}>
+            <span className="material-symbols-outlined text-4xl mb-2 opacity-50">folder_open</span>
+            <p className="text-sm font-semibold">
+              {lang === 'ID' ? 'Belum ada proyek dalam kategori ini.' : 'No projects found in this category.'}
+            </p>
+          </div>
+        ) : (
+          /* Cards Grid: persis sesuai file yang dikirim user */
+          <div className={`grid ${gridColsClass} gap-5 sm:gap-6`}>
+            {paginatedProjects.map((project, pIndex) => {
+              return (
+                <div
+                  key={`${project.id}-${pIndex}`}
+                  onClick={() => onSelectProject(project)}
+                  className={`relative rounded-[28px] overflow-hidden min-h-[440px] sm:min-h-[480px] p-5 sm:p-6 border transition-all duration-300 group flex flex-col justify-between cursor-pointer hover:-translate-y-1.5 select-none ${
+                    darkMode
+                      ? 'bg-[#0b1120] border-[#1e293b] shadow-[0_12px_32px_rgba(0,0,0,0.5)] hover:border-[#38bdf8]/50 hover:shadow-[0_20px_48px_rgba(56,189,248,0.15)]'
+                      : 'bg-white border-slate-200 shadow-[0_12px_30px_rgba(15,23,42,0.08)] hover:border-blue-300 hover:shadow-[0_20px_40px_rgba(37,99,235,0.14)]'
+                  }`}
+                >
+                  {/* Full Card Background Image Thumbnail */}
+                  {(() => {
+                    const primaryImg = formatGoogleDriveUrl(project.imageUrl);
+                    const fallbackImg = getCategoryFallbackImage(project.category);
+                    return (
+                      <img
+                        src={primaryImg || fallbackImg}
+                        alt={project.title}
+                        className="absolute inset-0 w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-700 pointer-events-none"
+                        referrerPolicy="no-referrer"
+                        loading="lazy"
+                        onError={(e) => {
+                          const target = e.currentTarget;
+                          const driveFallback = getGoogleDriveFallbackUrl(project.imageUrl);
+                          if (driveFallback && target.src !== driveFallback) {
+                            target.src = driveFallback;
+                          } else if (target.src !== fallbackImg) {
+                            target.src = fallbackImg;
+                          }
+                        }}
+                      />
+                    );
+                  })()}
+
+                  {/* Darkened Gradient Overlay to ensure text readability */}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/75 via-50% to-black/25 pointer-events-none transition-opacity duration-300 group-hover:opacity-95" />
+
+                  {/* Top Badge Row */}
+                  <div className="relative z-10 flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold text-white bg-black/55 backdrop-blur-md border border-white/20 shadow-xs">
+                      {project.badge || project.category || 'Featured'}
+                    </span>
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-extrabold text-white bg-black/55 backdrop-blur-md border border-white/20 shadow-xs">
+                      {project.year || '2026'}
                     </span>
                   </div>
 
-                  {/* Preview Graphic Simulator / Project Image */}
-                  <div className={`p-space-md ${darkMode ? 'bg-[#0d1527]' : 'bg-[#eaedff]/60'}`}>
-                    {project.imageUrl ? (
-                      <div className="w-full h-56 rounded-2xl overflow-hidden border border-[#23324f] relative group/img bg-[#080c16]">
-                        <img
-                          src={formatGoogleDriveUrl(project.imageUrl)}
-                          alt={project.title}
-                          className="w-full h-full object-cover group-hover/img:scale-105 transition-transform duration-500"
-                          referrerPolicy="no-referrer"
-                          loading="lazy"
-                          onError={(e) => {
-                            const fallback = getGoogleDriveFallbackUrl(project.imageUrl);
-                            if (fallback && e.currentTarget.src !== fallback) {
-                              e.currentTarget.src = fallback;
-                            }
-                          }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60"></div>
-                      </div>
-                    ) : project.type === 'plagin' ? (
-                      <div
-                        className={`w-full h-56 rounded-2xl p-4 flex flex-col justify-between overflow-hidden relative shadow-inner border ${
-                          darkMode
-                            ? 'bg-[#080c16] border-[#23324f]'
-                            : 'bg-[#080c16] border-slate-800'
-                        }`}
+                  {/* Bottom Information Row */}
+                  <div className="relative z-10 flex flex-col pt-12">
+                    {/* Title & Status Indicator */}
+                    <div className="flex items-center justify-between gap-2 mb-1.5">
+                      <h3
+                        className="text-lg sm:text-xl font-extrabold text-white group-hover:text-[#38bdf8] transition-colors tracking-tight truncate drop-shadow-sm"
+                        title={project.title}
                       >
-                        <div className="flex items-center justify-between text-[#94a3b8] text-xs font-mono">
-                          <span>Plag-In Engine v2.4</span>
-                          <span className="text-[#bef264] font-bold">Analysis: 99.4% Match Accuracy</span>
-                        </div>
-                        <div className="grid grid-cols-3 gap-2 my-auto">
-                          <div
-                            className={`p-2.5 rounded-xl text-center border ${
-                              darkMode
-                                ? 'bg-[#111a2e] border-[#1e293b]'
-                                : 'bg-[#131b2e] border-slate-700'
-                            }`}
-                          >
-                            <span className="block text-xl sm:text-2xl font-bold text-[#bef264]">0.14s</span>
-                            <span className="text-[10px] text-[#94a3b8] uppercase font-semibold">Latency</span>
-                          </div>
-                          <div
-                            className={`p-2.5 rounded-xl text-center border ${
-                              darkMode
-                                ? 'bg-[#111a2e] border-[#1e293b]'
-                                : 'bg-[#131b2e] border-slate-700'
-                            }`}
-                          >
-                            <span className="block text-xl sm:text-2xl font-bold text-white">12k+</span>
-                            <span className="text-[10px] text-[#94a3b8] uppercase font-semibold">Corpus Docs</span>
-                          </div>
-                          <div
-                            className={`p-2.5 rounded-xl text-center border ${
-                              darkMode
-                                ? 'bg-[#111a2e] border-[#1e293b]'
-                                : 'bg-[#131b2e] border-slate-700'
-                            }`}
-                          >
-                            <span className="block text-xl sm:text-2xl font-bold text-[#38bdf8]">Zero</span>
-                            <span className="text-[10px] text-[#94a3b8] uppercase font-semibold">False Positive</span>
-                          </div>
-                        </div>
-                        <div className="w-full bg-[#1e293b] h-1.5 rounded-full overflow-hidden">
-                          <div className="bg-[#bef264] h-full rounded-full" style={{ width: '82%' }}></div>
-                        </div>
-                      </div>
-                    ) : project.type === 'karsa' ? (
-                      <div
-                        className={`w-full h-56 rounded-2xl p-4 flex flex-col justify-between overflow-hidden shadow-inner border ${
-                          darkMode
-                            ? 'bg-[#080c16] border-[#23324f]'
-                            : 'bg-[#080c16] border-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs text-[#cbd5e1]">
-                          <span className="font-bold text-white">Karsa Design Tokens Hub</span>
-                          <span className="px-2 py-0.5 rounded bg-[#bef264] text-[#080c16] text-[10px] font-extrabold">
-                            Figma Sync v1.8
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-around gap-2">
-                          <div className="w-16 h-16 rounded-2xl bg-[#2563eb] flex flex-col items-center justify-center text-white shadow-md border border-blue-400">
-                            <span className="text-[10px] font-bold">Primary</span>
-                            <span className="text-[9px] opacity-80">#2563EB</span>
-                          </div>
-                          <div className="w-16 h-16 rounded-2xl bg-[#bef264] flex flex-col items-center justify-center text-[#080c16] shadow-md border border-lime-300">
-                            <span className="text-[10px] font-extrabold">Accent</span>
-                            <span className="text-[9px] opacity-90 font-bold">#BEF264</span>
-                          </div>
-                          <div className="w-16 h-16 rounded-2xl bg-[#c084fc] flex flex-col items-center justify-center text-[#1e1b4b] shadow-md border border-purple-200">
-                            <span className="text-[10px] font-extrabold">Lilac</span>
-                            <span className="text-[9px] opacity-80">#C084FC</span>
-                          </div>
-                          <div className="w-16 h-16 rounded-2xl bg-[#1e293b] flex flex-col items-center justify-center text-white shadow-md border border-slate-700">
-                            <span className="text-[10px] font-bold">Surface</span>
-                            <span className="text-[9px] opacity-80">#1E293B</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-[#94a3b8]">
-                          <span>GitHub Actions CI/CD Pipeline</span>
-                          <span className="text-[#38bdf8] font-bold">Synced 24 tokens</span>
-                        </div>
-                      </div>
-                    ) : project.type === 'finflow' ? (
-                      <div
-                        className={`w-full h-56 rounded-2xl p-4 flex flex-col justify-between shadow-inner border ${
-                          darkMode
-                            ? 'bg-[#080c16] border-[#23324f]'
-                            : 'bg-[#080c16] border-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <span className="text-xs text-[#94a3b8]">Arus Kas Bersih (Q3-Q4)</span>
-                            <h4 className="text-xl font-bold text-white">Rp 842.650.000</h4>
-                          </div>
-                          <span className="text-xs font-black text-[#080c16] bg-[#bef264] px-2.5 py-1 rounded-full shadow-sm">
-                            +28.4%
-                          </span>
-                        </div>
-                        <div className="w-full h-24 my-1">
-                          <svg className="w-full h-full text-[#38bdf8]" fill="none" viewBox="0 0 300 80">
-                            <path
-                              d="M0 60 Q 40 50, 80 55 T 160 30 T 220 38 T 300 10"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeLinecap="round"
-                              strokeWidth="3"
-                            />
-                            <path
-                              d="M0 60 Q 40 50, 80 55 T 160 30 T 220 38 T 300 10 L 300 80 L 0 80 Z"
-                              fill="currentColor"
-                              fillOpacity="0.12"
-                            />
-                            <circle className="fill-[#bef264]" cx="300" cy="10" r="4" />
-                          </svg>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-[#94a3b8] border-t border-[#1e293b] pt-1">
-                          <span>Sub-second Latency</span>
-                          <span className="text-[#38bdf8] font-semibold">React-Query Optimistic Updates</span>
-                        </div>
-                      </div>
-                    ) : (
-                      <div
-                        className={`w-full h-56 rounded-2xl p-4 flex flex-col justify-between shadow-inner border ${
-                          darkMode
-                            ? 'bg-[#080c16] border-[#23324f]'
-                            : 'bg-[#080c16] border-slate-800'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between text-xs text-[#cbd5e1]">
-                          <span className="font-mono text-[#38bdf8]">{project.category.toUpperCase()} PROJECT</span>
-                          <span className="text-[#bef264] font-bold">Cloud Production</span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-3 my-auto">
-                          <div
-                            className={`p-3 rounded-xl flex items-center gap-3 border ${
-                              darkMode
-                                ? 'bg-[#111a2e] border-[#1e293b]'
-                                : 'bg-[#131b2e] border-slate-700'
-                            }`}
-                          >
-                            <div className="w-8 h-8 rounded-full bg-[#2563eb] flex items-center justify-center text-white font-bold text-xs">
-                              <span className="material-symbols-outlined text-sm">rocket_launch</span>
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-white">Online App</div>
-                              <div className="text-[10px] text-[#38bdf8] font-medium">Auto-Synced</div>
-                            </div>
-                          </div>
-                          <div
-                            className={`p-3 rounded-xl flex items-center gap-3 border ${
-                              darkMode
-                                ? 'bg-[#111a2e] border-[#1e293b]'
-                                : 'bg-[#131b2e] border-slate-700'
-                            }`}
-                          >
-                            <div className="w-8 h-8 rounded-full bg-[#bef264] flex items-center justify-center text-[#080c16] font-extrabold text-xs shadow-sm">
-                              <span className="material-symbols-outlined text-base">code</span>
-                            </div>
-                            <div>
-                              <div className="text-xs font-bold text-white">Interactive</div>
-                              <div className="text-[10px] text-[#cbd5e1]">Full Stack Web</div>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between text-[11px] text-[#94a3b8]">
-                          <span>Google Sheets Real-time DB</span>
-                          <span className="text-[#bef264] font-bold">Live Synced</span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
+                        {project.title}
+                      </h3>
+                      {project.status && (
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#bef264] shrink-0 shadow-[0_0_8px_#bef264]" title={project.status}></span>
+                      )}
+                    </div>
 
-                  {/* Content Area */}
-                  <div className="p-space-lg">
-                    <h3
-                      className={`text-xl sm:text-2xl font-extrabold transition-colors mb-space-xs ${
-                        darkMode
-                          ? 'text-white group-hover:text-[#38bdf8]'
-                          : 'text-[#131b2e] group-hover:text-primary'
-                      }`}
-                    >
-                      {project.title}
-                    </h3>
-                    <p
-                      className={`text-sm sm:text-base mb-space-md font-medium leading-relaxed ${
-                        darkMode ? 'text-[#cbd5e1]' : 'text-[#434655]'
-                      }`}
-                    >
+                    {/* Description */}
+                    <p className="text-xs sm:text-sm font-medium text-slate-200 line-clamp-2 leading-relaxed mb-3 drop-shadow-xs">
                       {project.description}
                     </p>
-                    <div className="flex flex-wrap gap-2 mb-space-md">
-                      {(project.tags || []).map((tag, tagIdx) => (
-                        <span
-                          key={`${project.id}-tag-${tag}-${tagIdx}`}
-                          className={`text-xs px-3 py-1 rounded-full font-bold transition-colors ${
-                            darkMode
-                              ? 'bg-[#16223b] border border-[#334155] text-white'
-                              : 'bg-[#f2f3ff] text-[#131b2e]'
-                          }`}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
+
+                    {/* Micro Tag Pills (Semi-glass style yang disukai user) */}
+                    {project.tags && project.tags.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                        {project.tags[0] && (
+                          <span className="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-sm border border-white/20 shadow-xs">
+                            {project.tags[0]}
+                          </span>
+                        )}
+                        {project.tags[1] && (
+                          <span className="text-[10px] sm:text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-white/20 text-white backdrop-blur-sm border border-white/20 shadow-xs hidden sm:inline-block">
+                            {project.tags[1]}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* High-Contrast Full-Width Pill Action Button */}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSelectProject(project);
+                      }}
+                      className="w-full py-2.5 sm:py-3 px-4 rounded-full text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 bg-white text-[#090d16] hover:bg-[#bef264] hover:text-[#080c16] group-hover:bg-[#bef264] transition-all duration-200 shadow-md cursor-pointer"
+                    >
+                      <span>{lang === 'ID' ? 'Lihat Detail' : 'View Details'}</span>
+                      <span className="material-symbols-outlined text-sm sm:text-base transition-transform group-hover:translate-x-0.5">
+                        arrow_forward
+                      </span>
+                    </button>
                   </div>
                 </div>
+              );
+            })}
+          </div>
+        )}
 
-                <div className="px-space-lg pb-space-lg pt-0 flex items-center justify-between">
-                  <span
-                    className={`text-xs font-bold ${
-                      darkMode ? 'text-[#94a3b8]' : 'text-slate-400'
-                    }`}
-                  >
-                    {project.status}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => onSelectProject(project)}
-                    className={`inline-flex items-center gap-1.5 text-xs sm:text-sm group-hover:translate-x-1 transition-all font-bold cursor-pointer ${
-                      darkMode
-                        ? 'text-[#38bdf8] hover:text-white'
-                        : 'text-primary hover:text-[#1d4ed8]'
-                    }`}
-                  >
-                    <span>{project.actionText}</span>
-                    <span className="material-symbols-outlined text-base">arrow_forward</span>
-                  </button>
-                </div>
+        {/* Redesigned Pagination Controls */}
+        {!isLoadingSheets && totalPages > 1 && (
+          <div className="mt-10 sm:mt-12 flex flex-col sm:flex-row items-center justify-between gap-4">
+            {/* Text Result on Left */}
+            <div className={`text-xs sm:text-sm font-semibold ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+              {lang === 'ID'
+                ? `Hasil ${startIndex + 1} - ${Math.min(startIndex + CARDS_PER_PAGE, filteredProjects.length)} dari ${filteredProjects.length}`
+                : `Results ${startIndex + 1} - ${Math.min(startIndex + CARDS_PER_PAGE, filteredProjects.length)} of ${filteredProjects.length}`}
+            </div>
+
+            {/* Navigation: < 1 2 3 > */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Prev Button */}
+              <button
+                type="button"
+                aria-label="Previous page"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                  currentPage === 1
+                    ? 'opacity-30 cursor-not-allowed text-slate-400'
+                    : darkMode
+                    ? 'bg-[#1e293b] text-slate-200 hover:bg-[#283955] hover:text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">chevron_left</span>
+              </button>
+
+              {/* Numbered Page Dots with Primary Active State */}
+              <div className="flex items-center gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                  const isActive = currentPage === pageNum;
+                  return (
+                    <button
+                      key={`page-${pageNum}`}
+                      type="button"
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center ${
+                        isActive
+                          ? 'bg-[#2563eb] text-white shadow-sm'
+                          : darkMode
+                          ? 'text-slate-300 hover:bg-[#1e293b] hover:text-white'
+                          : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+
+              {/* Next Button */}
+              <button
+                type="button"
+                aria-label="Next page"
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
+                className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center transition-all cursor-pointer ${
+                  currentPage === totalPages
+                    ? 'opacity-30 cursor-not-allowed text-slate-400'
+                    : darkMode
+                    ? 'bg-[#1e293b] text-slate-200 hover:bg-[#283955] hover:text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-slate-900'
+                }`}
+              >
+                <span className="material-symbols-outlined text-base">chevron_right</span>
+              </button>
+            </div>
+          </div>
+        )}
 
       </div>
     </section>

@@ -96,8 +96,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
               href="#tentang"
               onClick={(e) => scrollToSection(e, 'tentang')}
             >
-              <img src="/public/images/logo.png" alt="Logo" className="w-8 h-8 sm:w-9 sm:h-9 rounded-full" />
-              {/* <div
+              <div
                 className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform ${
                   darkMode ? 'bg-[#2563eb]' : 'bg-primary'
                 }`}
@@ -110,7 +109,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
                 }`}
               >
                 YAS<span className="inline-block w-1.5 h-1.5 rounded-full bg-[#bef264] ml-0.5"></span>
-              </span> */}
+              </span>
             </a>
 
             {/* Badge Open to Work - Never wraps, single line, cleanly spaced */}
@@ -126,7 +125,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-[#bef264]"></span>
               </span>
               <span className="font-extrabold text-[10px] uppercase tracking-wider whitespace-nowrap">
-                {lang === 'ID' ? 'Open to Work' : 'Available'}
+                OPEN TO WORK
               </span>
             </div>
           </div>

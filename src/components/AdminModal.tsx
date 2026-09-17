@@ -124,21 +124,22 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [adminTab, setAdminTab] = useState<'moderation' | 'projects' | 'script'>('projects');
 
   // Hardcoded deployed backend Webhook URL
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwEXPJrr6eOD8X7HAMMtX86loDB0EaTPpnwK3wPl2QSugXa1IZ5SnK745AEM40BlwJ5/exec';
+  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlNIlLj2wW17A14t6amS6wCVY69b-lF12mufIMHRECaFLYE9BDJ1LDrjtJdFhxMClg/exec';
 
   // Reviews for moderation
   const [reviews, setReviews] = useState<TestimonialItem[]>([]);
   const [filterMode, setFilterMode] = useState<'pending' | 'all' | 'approved'>('pending');
 
   // Form Input Project State - Sesuai persis dengan Kolom Sheet Projects:
-  // id (auto), title, desc, tags, image, github, demo, category
+  // id (auto), title, desc, tags, image, github, demo, category, plus year (angka saja)
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [projectTags, setProjectTags] = useState('');
   const [projectImage, setProjectImage] = useState('');
   const [projectGithub, setProjectGithub] = useState('');
   const [projectDemo, setProjectDemo] = useState('');
-  const [projectCategory, setProjectCategory] = useState('fullstack');
+  const [projectCategory, setProjectCategory] = useState('UI/UX Design');
+  const [projectYear, setProjectYear] = useState<string>(() => new Date().getFullYear().toString());
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isSubmittingProject, setIsSubmittingProject] = useState(false);
   const [projectSuccessMsg, setProjectSuccessMsg] = useState('');
@@ -535,6 +536,17 @@ function doPost(e) {
 
 var ADMIN_SECRET = "Putra204247T"; // Ganti dengan kata sandi yang Anda inginkan
 
+function ensureProjectsHeader(sheet) {
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow(["id", "title", "desc", "tags", "image", "github", "demo", "category", "year"]);
+    return;
+  }
+  var col9Val = String(sheet.getRange(1, 9).getValue() || "").toLowerCase().trim();
+  if (col9Val !== "year") {
+    sheet.getRange(1, 9).setValue("year");
+  }
+}
+
 function ensureIdColumn(sheet) {
   if (sheet.getLastRow() === 0) {
     sheet.appendRow(["id", "timestamp", "name", "role", "rating", "message", "approved"]);
@@ -585,6 +597,7 @@ function doGet(e) {
     var projectSheet = ss.getSheetByName("Projects");
     var projects = [];
     if (projectSheet) {
+      ensureProjectsHeader(projectSheet);
       var rows = projectSheet.getDataRange().getValues();
       for (var i = 1; i < rows.length; i++) {
         var row = rows[i];
@@ -597,7 +610,8 @@ function doGet(e) {
             image: String(row[4] || ""),
             github: String(row[5] || ""),
             demo: String(row[6] || ""),
-            category: String(row[7] || "fullstack")
+            category: String(row[7] || "UI/UX Design"),
+            year: String(row[8] || "")
           });
         }
       }
@@ -657,9 +671,9 @@ function doPost(e) {
     var ss = SpreadsheetApp.getActiveSpreadsheet();
 
     // -------------------------------------------------------------
-    // 1. AKSI ADMIN (SINKRONISASI PROYEK, LOGIN, SETUJUI RATING)
+    // 1. AKSI ADMIN (SINKRONISASI PROYEK, TAMBAH PROYEK, LOGIN, SETUJUI RATING)
     // -------------------------------------------------------------
-    if (data.action === "sync_projects" || data.action === "verify" || data.action === "approve_rating") {
+    if (data.action === "sync_projects" || data.action === "add_project" || data.action === "verify" || data.action === "approve_rating") {
       if (data.secret !== ADMIN_SECRET) {
         return ContentService.createTextOutput(JSON.stringify({ status: "error", message: "Kata sandi salah!" }))
           .setMimeType(ContentService.MimeType.JSON);
@@ -671,11 +685,33 @@ function doPost(e) {
           .setMimeType(ContentService.MimeType.JSON);
       }
 
+      // Tambah 1 Proyek (appendRow ke Sheet Projects kolom A-I)
+      if (data.action === "add_project") {
+        var projectSheet = ss.getSheetByName("Projects") || ss.insertSheet("Projects");
+        ensureProjectsHeader(projectSheet);
+        var p = data.project || data;
+        var pTags = Array.isArray(p.tags) ? p.tags.join(", ") : (p.tags || "");
+        var pYear = String(p.year || data.year || "").trim();
+        projectSheet.appendRow([
+          p.id || ("PRJ-" + Math.floor(1000 + Math.random() * 9000)),
+          p.title || "",
+          p.desc || p.description || "",
+          pTags,
+          p.image || p.imageUrl || "",
+          p.github || p.githubUrl || "",
+          p.demo || p.demoUrl || "",
+          p.category || "UI/UX Design",
+          pYear
+        ]);
+        return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Proyek berhasil ditambahkan!" }))
+          .setMimeType(ContentService.MimeType.JSON);
+      }
+
       // Simpan Proyek ke Sheet Projects
       if (data.action === "sync_projects" && Array.isArray(data.projects)) {
         var projectSheet = ss.getSheetByName("Projects") || ss.insertSheet("Projects");
         projectSheet.clearContents();
-        projectSheet.appendRow(["id", "title", "desc", "tags", "image", "github", "demo", "category"]);
+        projectSheet.appendRow(["id", "title", "desc", "tags", "image", "github", "demo", "category", "year"]);
         
         data.projects.forEach(function(p) {
           projectSheet.appendRow([
@@ -686,7 +722,8 @@ function doPost(e) {
             p.image || "",
             p.github || "",
             p.demo || "",
-            p.category || ""
+            p.category || "",
+            String(p.year || "").trim()
           ]);
         });
 
@@ -932,7 +969,7 @@ function doPost(e) {
     setTimeout(() => setModToast(''), 3000);
   };
 
-  // Submit New Project to Sheet: Projects (Columns: id, title, desc, tags, image, github, demo, category)
+  // Submit New Project to Sheet: Projects (Columns: id, title, desc, tags, image, github, demo, category, year)
   const handleAddProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!projectTitle.trim()) return;
@@ -943,6 +980,7 @@ function doPost(e) {
     // Generate clean ID otomatis: PRJ-XXXX
     const generatedId = `PRJ-${Date.now().toString().slice(-4)}`;
     const secretPass = password.trim() || 'Putra204247T';
+    const cleanYear = projectYear.trim().replace(/[^0-9]/g, '') || new Date().getFullYear().toString();
 
     const tagsArray = Array.from(
       new Set(
@@ -962,6 +1000,7 @@ function doPost(e) {
       github: projectGithub.trim(),
       demo: projectDemo.trim(),
       category: projectCategory,
+      year: cleanYear,
     };
 
     // Ambil daftar project yang sudah ada dari spreadsheet via doGet agar bisa disinkronkan
@@ -979,13 +1018,10 @@ function doPost(e) {
     const updatedProjects = [...existingProjects, newProjectItem];
 
     // Payload yang cocok 100% dengan Google Apps Script Anda:
-    // 1. data.action === "sync_projects" (dengan data.projects: [...])
-    // 2. data.action === "ADD_PROJECT" (fallback)
     const payload = {
       action: 'sync_projects',
       secret: secretPass,
       projects: updatedProjects,
-      // fallback fields jika script versi appendRow digunakan
       project: newProjectItem,
       id: generatedId,
       title: projectTitle.trim(),
@@ -995,7 +1031,38 @@ function doPost(e) {
       github: projectGithub.trim(),
       demo: projectDemo.trim(),
       category: projectCategory,
+      year: cleanYear,
     };
+
+    // Simpan juga ke cache lokal agar langsung terlihat di kartu portofolio seketika
+    try {
+      const cached = localStorage.getItem('yas_portfolio_projects_cache_v2');
+      let currentCache: any[] = [];
+      if (cached) currentCache = JSON.parse(cached);
+      const newCardProject = {
+        id: generatedId,
+        category: projectCategory,
+        year: cleanYear,
+        badge: projectCategory,
+        badgeBg: 'bg-primary text-on-primary',
+        badgeText: 'bg-primary-container',
+        title: projectTitle.trim(),
+        subtitle: projectCategory,
+        description: projectDesc.trim(),
+        tags: tagsArray.length > 0 ? tagsArray : [projectCategory, 'Showcase'],
+        status: 'Live Production',
+        actionText: 'Lihat Detail',
+        type: 'sheet-project',
+        imageUrl: formatGoogleDriveUrl(projectImage.trim()),
+        githubUrl: projectGithub.trim(),
+        demoUrl: projectDemo.trim(),
+      };
+      const merged = [newCardProject, ...currentCache.filter((p) => p.id !== generatedId)];
+      localStorage.setItem('yas_portfolio_projects_cache_v2', JSON.stringify(merged));
+      window.dispatchEvent(new CustomEvent('yas_projects_updated'));
+    } catch {
+      // ignore
+    }
 
     try {
       // Kirim ke Google Apps Script tanpa hambatan CORS (mode no-cors untuk eksekusi kilat)
@@ -1022,6 +1089,7 @@ function doPost(e) {
       setProjectImage('');
       setProjectGithub('');
       setProjectDemo('');
+      setProjectYear(new Date().getFullYear().toString());
       setTimeout(() => setProjectSuccessMsg(''), 5000);
     } catch (err) {
       console.warn('Google Apps Script project submission notice:', err);
@@ -1463,7 +1531,7 @@ function doPost(e) {
                         Input Proyek Baru (Sheet: Projects)
                       </h4>
                       <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                        Formulir ini disesuaikan persis dengan 8 kolom Google Spreadsheet Anda: <code>id, title, desc, tags, image, github, demo, category</code>.
+                        Formulir ini disesuaikan persis dengan kolom Google Spreadsheet Anda: <code>id, title, desc, tags, image, github, demo, category, year</code>.
                       </p>
                     </div>
 
@@ -1555,10 +1623,8 @@ function doPost(e) {
                               : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white'
                           }`}
                         >
-                          <span className="truncate pr-2">
-                            {projectCategory === 'fullstack' && 'fullstack (Full Stack Application)'}
-                            {projectCategory === 'backend' && 'backend (Backend & AI Architecture)'}
-                            {projectCategory === 'designsystem' && 'designsystem (UI/UX Design System)'}
+                          <span className="truncate pr-2 font-medium">
+                            {projectCategory}
                           </span>
                           <span
                             className={`material-symbols-outlined text-lg transition-transform duration-200 shrink-0 ${
@@ -1584,9 +1650,10 @@ function doPost(e) {
                               }`}
                             >
                               {[
-                                { value: 'fullstack', label: 'fullstack (Full Stack Application)' },
-                                { value: 'backend', label: 'backend (Backend & AI Architecture)' },
-                                { value: 'designsystem', label: 'designsystem (UI/UX Design System)' }
+                                { value: 'UI/UX Design', label: 'UI/UX Design' },
+                                { value: 'Web Development', label: 'Web Development' },
+                                { value: 'Graphic Design', label: 'Graphic Design' },
+                                { value: 'Photography', label: 'Photography' }
                               ].map((opt) => {
                                 const isSelected = projectCategory === opt.value;
                                 return (
@@ -1616,6 +1683,31 @@ function doPost(e) {
                           </>
                         )}
                       </div>
+                    </div>
+
+                    {/* Baris Input Tahun (Year) - Hanya Angka */}
+                    <div>
+                      <label className={`block text-xs font-bold mb-1.5 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                        Tahun Proyek (Year) *
+                      </label>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={4}
+                        required
+                        value={projectYear}
+                        onChange={(e) => setProjectYear(e.target.value.replace(/[^0-9]/g, ''))}
+                        placeholder="2026"
+                        className={`w-full px-4 py-2.5 rounded-xl border text-xs font-mono transition-all focus:outline-none ${
+                          darkMode
+                            ? 'bg-[#0b101c] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-[#bef264]'
+                            : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#2563eb]'
+                        }`}
+                      />
+                      <span className={`text-[10px] mt-1 block ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                        Hanya menerima input angka tahun (contoh: 2026).
+                      </span>
                     </div>
 
                     {/* Baris 4: Image URL (image) */}
