@@ -121,10 +121,12 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   });
 
   // Active Tab in Admin
-  const [adminTab, setAdminTab] = useState<'moderation' | 'projects' | 'script'>('projects');
+  const [adminTab, setAdminTab] = useState<'moderation' | 'projects' | 'certificates' | 'script'>('projects');
 
   // Hardcoded deployed backend Webhook URL
   const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlNIlLj2wW17A14t6amS6wCVY69b-lF12mufIMHRECaFLYE9BDJ1LDrjtJdFhxMClg/exec';
+  // Backend Google Apps Script Web App URL untuk Sertifikat (sertif.gs)
+  const CERT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl_PVOYI-Y6LeMfNNlSG3ogxqu-U3kq2wgu1D45J_34MJJ-Fd5XMVC_DvXPz04Tagx/exec';
 
   // Reviews for moderation
   const [reviews, setReviews] = useState<TestimonialItem[]>([]);
@@ -143,6 +145,25 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const [isCategoryDropdownOpen, setIsCategoryDropdownOpen] = useState(false);
   const [isSubmittingProject, setIsSubmittingProject] = useState(false);
   const [projectSuccessMsg, setProjectSuccessMsg] = useState('');
+
+  // Form Input Certificate State (12/12 identik dengan input proyek: judul, desc, tag, category, link gdrive image)
+  const [certTitle, setCertTitle] = useState('');
+  const [certDesc, setCertDesc] = useState('');
+  const [certTags, setCertTags] = useState('');
+  const [certImage, setCertImage] = useState('');
+  const [certCategory, setCertCategory] = useState<'Design' | 'Tech' | 'Business & Skills'>('Design');
+  const [certYear, setCertYear] = useState<string>(() => new Date().getFullYear().toString());
+  const [isCertCategoryDropdownOpen, setIsCertCategoryDropdownOpen] = useState(false);
+  const [isSubmittingCert, setIsSubmittingCert] = useState(false);
+  const [certSuccessMsg, setCertSuccessMsg] = useState('');
+  const [certWebhookUrl] = useState(() => CERT_SCRIPT_URL);
+  const [existingCertificates, setExistingCertificates] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem('yas_portfolio_certificates');
+      if (cached) return JSON.parse(cached);
+    } catch {}
+    return [];
+  });
 
   // Moderation action status toast
   const [modToast, setModToast] = useState('');
@@ -252,7 +273,125 @@ export const AdminModal: React.FC<AdminModalProps> = ({
     localStorage.setItem('yas_sheet_webhook_url', url);
   };
 
-  const [scriptTabType, setScriptTabType] = useState<'reviews' | 'all'>('reviews');
+  const [scriptTabType, setScriptTabType] = useState<'reviews' | 'all' | 'sertif'>('sertif');
+
+  // Backend Google Apps Script untuk Sertifikat (sertif.gs)
+  const sertifScriptCode = `/**
+ * =========================================================================
+ * SERTIFIKAT GOOGLE APPS SCRIPT (sertif.gs)
+ * Backend Google Apps Script untuk Halaman & Manajemen Sertifikat Portfolio
+ * =========================================================================
+ */
+var SHEET_NAME = "Certificates";
+
+function getOrCreateSheet() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+  }
+  if (sheet.getLastRow() === 0) {
+    var headers = ["id", "title", "desc", "tags", "category", "image", "year", "created_at"];
+    sheet.appendRow(headers);
+    sheet.getRange(1, 1, 1, headers.length).setFontWeight("bold").setBackground("#f1f5f9");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function doGet(e) {
+  try {
+    var sheet = getOrCreateSheet();
+    var data = sheet.getDataRange().getValues();
+    var certificates = [];
+    for (var i = 1; i < data.length; i++) {
+      var row = data[i];
+      var certId = String(row[0] || "").trim();
+      var title = String(row[1] || "").trim();
+      if (certId || title) {
+        var tagsRaw = String(row[3] || "");
+        var tagsArray = tagsRaw ? tagsRaw.split(",").map(function(t) { return t.trim(); }).filter(Boolean) : [];
+        certificates.push({
+          id: certId || ("CERT-" + i),
+          title: title,
+          desc: String(row[2] || ""),
+          description: String(row[2] || ""),
+          tags: tagsArray,
+          category: String(row[4] || "Design"),
+          image: String(row[5] || ""),
+          imageUrl: String(row[5] || ""),
+          year: String(row[6] || new Date().getFullYear()),
+          created_at: row[7] ? String(row[7]) : ""
+        });
+      }
+    }
+    certificates.reverse();
+    return ContentService.createTextOutput(JSON.stringify({
+      status: "success",
+      count: certificates.length,
+      certificates: certificates
+    })).setMimeType(ContentService.MimeType.JSON);
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString(), certificates: [] })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doPost(e) {
+  var lock = LockService.getScriptLock();
+  try { lock.tryLock(10000); } catch(e) {}
+  try {
+    var contents = {};
+    if (e && e.postData && e.postData.contents) {
+      try { contents = JSON.parse(e.postData.contents); } catch(parseErr) { contents = e.parameter || {}; }
+    } else if (e && e.parameter) {
+      contents = e.parameter;
+    }
+    var sheet = getOrCreateSheet();
+    var action = String(contents.action || "add_certificate").toLowerCase();
+    
+    if (action === "delete_certificate" || action === "delete") {
+      var targetId = String(contents.id || "").trim();
+      var allRows = sheet.getDataRange().getValues();
+      for (var r = 1; r < allRows.length; r++) {
+        if (String(allRows[r][0]).trim() === targetId) {
+          sheet.deleteRow(r + 1);
+          return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Deleted" })).setMimeType(ContentService.MimeType.JSON);
+        }
+      }
+      return ContentService.createTextOutput(JSON.stringify({ status: "not_found" })).setMimeType(ContentService.MimeType.JSON);
+    }
+    
+    var certId = String(contents.id || ("CERT-" + Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyyMMdd-HHmmss"))).trim();
+    var title = String(contents.title || "").trim();
+    var desc = String(contents.desc || contents.description || "").trim();
+    var tags = Array.isArray(contents.tags) ? contents.tags.join(", ") : String(contents.tags || "").trim();
+    var category = String(contents.category || "Design").trim();
+    var image = String(contents.image || contents.imageUrl || "").trim();
+    var year = String(contents.year || new Date().getFullYear()).trim();
+    var createdAt = Utilities.formatDate(new Date(), "Asia/Jakarta", "yyyy-MM-dd HH:mm:ss");
+    
+    var currentData = sheet.getDataRange().getValues();
+    var existingRowIndex = -1;
+    for (var k = 1; k < currentData.length; k++) {
+      if (String(currentData[k][0]).trim() === certId) {
+        existingRowIndex = k + 1;
+        break;
+      }
+    }
+    
+    if (existingRowIndex > 0) {
+      sheet.getRange(existingRowIndex, 1, 1, 8).setValues([[certId, title, desc, tags, category, image, year, createdAt]]);
+    } else {
+      sheet.appendRow([certId, title, desc, tags, category, image, year, createdAt]);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: "success", message: "Saved" })).setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: error.toString() })).setMimeType(ContentService.MimeType.JSON);
+  } finally {
+    try { lock.releaseLock(); } catch(e) {}
+  }
+}`;
 
   // Khusus Script reviews.gs untuk Write Review & Rating ke sheet "Rating"
   const reviewsScriptCode = `// =============================================================================
@@ -1104,9 +1243,127 @@ function doPost(e) {
     }
   };
 
+  // Handler Input Sertifikat (12/12 identik dengan input project, ultra-lancar tanpa loading lama)
+  const handleAddCertificate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!certTitle.trim()) return;
+
+    setIsSubmittingCert(true);
+    setCertSuccessMsg('');
+
+    const generatedId = `CERT-${Date.now().toString().slice(-4)}`;
+    const cleanYear = certYear.trim().replace(/[^0-9]/g, '') || new Date().getFullYear().toString();
+
+    const tagsArray = Array.from(
+      new Set(
+        certTags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      )
+    );
+
+    const newCertItem = {
+      id: generatedId,
+      title: certTitle.trim(),
+      desc: certDesc.trim(),
+      description: certDesc.trim(),
+      tags: tagsArray.length > 0 ? tagsArray : [certCategory],
+      category: certCategory,
+      image: certImage.trim(),
+      imageUrl: certImage.trim(),
+      year: cleanYear,
+      badge: certCategory,
+    };
+
+    // 1. Instant Optimistic Local Cache Update (0ms, langsung muncul di website)
+    try {
+      const cached = localStorage.getItem('yas_portfolio_certificates');
+      let currentCache: any[] = [];
+      if (cached) currentCache = JSON.parse(cached);
+      const merged = [newCertItem, ...currentCache.filter((c: any) => c.id !== generatedId)];
+      localStorage.setItem('yas_portfolio_certificates', JSON.stringify(merged));
+      setExistingCertificates(merged);
+      window.dispatchEvent(new CustomEvent('yas_certificates_updated'));
+    } catch (err) {
+      console.warn('Failed to update local certificate cache', err);
+    }
+
+    // 2. Background non-blocking push ke Google Apps Script (sertif.gs)
+    const targetWebhook = certWebhookUrl.trim();
+    if (targetWebhook) {
+      const payload = {
+        action: 'add_certificate',
+        id: generatedId,
+        title: certTitle.trim(),
+        desc: certDesc.trim(),
+        tags: tagsArray.join(', '),
+        category: certCategory,
+        image: certImage.trim(),
+        year: cleanYear,
+      };
+
+      try {
+        fetch(targetWebhook, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(payload),
+        }).catch((e) => console.warn('Cert background sync notice:', e));
+      } catch (postErr) {
+        console.warn('Cert post error', postErr);
+      }
+    }
+
+    // 3. Respon cepat & reset form agar proses input terasa instan dan lancar
+    setIsSubmittingCert(false);
+    setCertSuccessMsg(
+      lang === 'ID'
+        ? `Sertifikat "${certTitle}" berhasil ditambahkan ke portofolio!`
+        : `Certificate "${certTitle}" successfully added!`
+    );
+
+    setCertTitle('');
+    setCertDesc('');
+    setCertTags('');
+    setCertImage('');
+    setCertYear(new Date().getFullYear().toString());
+    setTimeout(() => setCertSuccessMsg(''), 5000);
+  };
+
+  // Handler Hapus Sertifikat
+  const handleDeleteCertificate = (id: string) => {
+    try {
+      const cached = localStorage.getItem('yas_portfolio_certificates');
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        const filtered = parsed.filter((c: any) => c.id !== id);
+        localStorage.setItem('yas_portfolio_certificates', JSON.stringify(filtered));
+        setExistingCertificates(filtered);
+        window.dispatchEvent(new CustomEvent('yas_certificates_updated'));
+      }
+      const targetWebhook = certWebhookUrl.trim();
+      if (targetWebhook) {
+        fetch(targetWebhook, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ action: 'delete_certificate', id }),
+        }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn('Failed to delete certificate', err);
+    }
+  };
+
   // Copy Google Apps Script code to clipboard
   const handleCopyScript = () => {
-    const textToCopy = scriptTabType === 'reviews' ? reviewsScriptCode : googleAppsScriptCode;
+    const textToCopy =
+      scriptTabType === 'reviews'
+        ? reviewsScriptCode
+        : scriptTabType === 'sertif'
+        ? sertifScriptCode
+        : googleAppsScriptCode;
     navigator.clipboard.writeText(textToCopy);
     setCopiedScript(true);
     setTimeout(() => setCopiedScript(false), 2500);
@@ -1286,6 +1543,21 @@ function doPost(e) {
                     >
                       <span className="material-symbols-outlined text-base">add_box</span>
                       <span>Input Proyek (Projects)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setAdminTab('certificates')}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center gap-1.5 ${
+                        adminTab === 'certificates'
+                          ? 'bg-[#2563eb] text-white shadow-xs'
+                          : darkMode
+                          ? 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-base">workspace_premium</span>
+                      <span>Input Sertifikat</span>
                     </button>
 
                     <button
@@ -1782,11 +2054,299 @@ function doPost(e) {
                   </form>
                 )}
 
-                {/* TAB 3: BACKEND SCRIPT READY TO COPY */}
+                {/* TAB 3: INPUT SERTIFIKAT (SHEET: CERTIFICATES) */}
+                {adminTab === 'certificates' && (
+                  <div className="flex flex-col gap-6">
+                    {/* Form Input Sertifikat - 12/12 identik dengan format Proyek */}
+                    <form onSubmit={handleAddCertificate} className="flex flex-col gap-4">
+                      <div>
+                        <h4 className={`font-extrabold text-sm ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
+                          Input Sertifikat Baru (Sheet: Certificates)
+                        </h4>
+                        <p className={`text-xs mt-0.5 ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
+                          Formulir khusus sertifikat: <code>judul, desc, tag, category (Design, Tech, Business & Skills), dan link gdrive image</code>.
+                        </p>
+                      </div>
+
+                      {/* Notifikasi Sukses Instan */}
+                      {certSuccessMsg && (
+                        <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base">check_circle</span>
+                          <span>{certSuccessMsg}</span>
+                        </div>
+                      )}
+
+                      {/* URL Webhook sertif.gs telah terpasang permanen di dalam source code */}
+
+                      {/* Baris 1: Judul Sertifikat (Title) */}
+                      <div>
+                        <label className={`block text-xs font-bold mb-1.5 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                          Judul / Nama Sertifikat *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          value={certTitle}
+                          onChange={(e) => setCertTitle(e.target.value)}
+                          placeholder="Contoh: Juara 1 UI/UX Design Competition (Plag-In)"
+                          className={`w-full px-4 py-3 rounded-xl border text-xs sm:text-sm transition-all focus:outline-none ${
+                            darkMode
+                              ? 'bg-[#0b101c] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-[#bef264]'
+                              : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#2563eb]'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Baris 2: Deskripsi / Penjelasan Sertifikat */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className={`text-xs font-bold ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                            Desc / Keterangan Sertifikat *
+                          </label>
+                          <span className={`text-[10px] ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {certDesc.length} karakter
+                          </span>
+                        </div>
+                        <textarea
+                          rows={3}
+                          required
+                          value={certDesc}
+                          onChange={(e) => setCertDesc(e.target.value)}
+                          placeholder="Jelaskan penyelenggara, pencapaian, dan kompetensi yang diuji dalam sertifikat ini..."
+                          className={`w-full p-4 rounded-lg border text-xs sm:text-sm leading-relaxed transition-all focus:outline-none resize-none ${
+                            darkMode
+                              ? 'bg-[#0b101c] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-[#bef264]'
+                              : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#2563eb]'
+                          }`}
+                        />
+                      </div>
+
+                      {/* Baris 3: Tag, Category, & Tahun */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* Tags */}
+                        <div>
+                          <label className={`block text-xs font-bold mb-1.5 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                            Tags (Keahlian)
+                          </label>
+                          <input
+                            type="text"
+                            value={certTags}
+                            onChange={(e) => setCertTags(e.target.value)}
+                            placeholder="UI/UX, Figma, Riset"
+                            className={`w-full px-4 py-2.5 rounded-xl border text-xs transition-all focus:outline-none ${
+                              darkMode
+                                ? 'bg-[#0b101c] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-[#bef264]'
+                                : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#2563eb]'
+                            }`}
+                          />
+                          <span className={`text-[10px] mt-1 block ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                            Pisahkan dengan koma.
+                          </span>
+                        </div>
+
+                        {/* Category Dropdown (All, Design, Tech, Business & Skills) */}
+                        <div className="relative">
+                          <label className={`block text-xs font-bold mb-1.5 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                            Category *
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => setIsCertCategoryDropdownOpen(!isCertCategoryDropdownOpen)}
+                            className={`w-full px-4 py-2.5 rounded-full border text-xs font-semibold flex items-center justify-between text-left transition-all cursor-pointer select-none focus:outline-none focus:ring-2 focus:ring-[#38bdf8] ${
+                              darkMode
+                                ? 'bg-[#0d1527] border-[#334155] text-white'
+                                : 'bg-slate-50 border-slate-200 text-slate-800 focus:bg-white'
+                            }`}
+                          >
+                            <span className="truncate pr-2 font-medium">
+                              {certCategory}
+                            </span>
+                            <span
+                              className={`material-symbols-outlined text-lg transition-transform duration-200 shrink-0 ${
+                                isCertCategoryDropdownOpen ? 'rotate-180' : ''
+                              } ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}
+                            >
+                              expand_more
+                            </span>
+                          </button>
+
+                          {isCertCategoryDropdownOpen && (
+                            <>
+                              <div
+                                className="fixed inset-0 z-20 cursor-default"
+                                onClick={() => setIsCertCategoryDropdownOpen(false)}
+                              />
+                              <div
+                                className={`absolute top-full left-0 right-0 mt-2 z-30 p-2 rounded-2xl border shadow-2xl backdrop-blur-xl flex flex-col gap-1.5 ${
+                                  darkMode
+                                    ? 'bg-[#0e172a]/95 border-[#23324f] shadow-black/80'
+                                    : 'bg-white/95 border-slate-200 shadow-blue-500/10'
+                                }`}
+                              >
+                                {[
+                                  { value: 'Design', label: 'Design' },
+                                  { value: 'Tech', label: 'Tech' },
+                                  { value: 'Business & Skills', label: 'Business & Skills' }
+                                ].map((opt) => {
+                                  const isSelected = certCategory === opt.value;
+                                  return (
+                                    <button
+                                      key={opt.value}
+                                      type="button"
+                                      onClick={() => {
+                                        setCertCategory(opt.value as any);
+                                        setIsCertCategoryDropdownOpen(false);
+                                      }}
+                                      className={`w-full text-left px-3.5 py-2 rounded-full text-xs font-semibold transition-all flex items-center justify-between cursor-pointer ${
+                                        isSelected
+                                          ? 'bg-[#2563eb] text-white shadow-xs'
+                                          : darkMode
+                                          ? 'text-slate-200 hover:bg-[#1e293b] hover:text-white'
+                                          : 'text-slate-700 hover:bg-slate-100 hover:text-slate-900'
+                                      }`}
+                                    >
+                                      <span className="truncate">{opt.label}</span>
+                                      {isSelected && (
+                                        <span className="material-symbols-outlined text-base shrink-0 ml-2">check</span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </>
+                          )}
+                        </div>
+
+                        {/* Tahun (Year) */}
+                        <div>
+                          <label className={`block text-xs font-bold mb-1.5 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                            Tahun *
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            maxLength={4}
+                            required
+                            value={certYear}
+                            onChange={(e) => setCertYear(e.target.value.replace(/[^0-9]/g, ''))}
+                            placeholder="2024"
+                            className={`w-full px-4 py-2.5 rounded-xl border text-xs font-mono transition-all focus:outline-none ${
+                              darkMode
+                                ? 'bg-[#0b101c] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-[#bef264]'
+                                : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#2563eb]'
+                            }`}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Baris 4: Link Google Drive Image (Image URL) */}
+                      <div>
+                        <label className={`block text-xs font-bold mb-1.5 ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                          Link Google Drive Gambar Sertifikat *
+                        </label>
+                        <input
+                          type="url"
+                          required
+                          value={certImage}
+                          onChange={(e) => setCertImage(e.target.value)}
+                          placeholder="https://drive.google.com/file/d/.../view?usp=sharing"
+                          className={`w-full px-4 py-2.5 rounded-xl border text-xs font-mono transition-all focus:outline-none ${
+                            darkMode
+                              ? 'bg-[#0b101c] border-slate-700/80 text-white placeholder:text-slate-500 focus:border-[#bef264]'
+                              : 'bg-slate-50 border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-[#2563eb]'
+                          }`}
+                        />
+                        <span className={`text-[10px] mt-1 block ${darkMode ? 'text-slate-500' : 'text-slate-500'}`}>
+                          Dapat berupa tautan berbagi Google Drive atau URL gambar langsung. Sistem otomatis memformatnya menjadi gambar resolusi tinggi.
+                        </span>
+                      </div>
+
+                      {/* Submit Button */}
+                      <button
+                        type="submit"
+                        disabled={isSubmittingCert}
+                        className="mt-2 py-3 rounded-xl font-bold text-xs bg-[#2563eb] hover:bg-[#1d4ed8] text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        {isSubmittingCert ? (
+                          <span>Menyimpan Sertifikat...</span>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-base">workspace_premium</span>
+                            <span>Kirim & Tambahkan Sertifikat (Instant & Smooth)</span>
+                          </>
+                        )}
+                      </button>
+                    </form>
+
+                    {/* Daftar Sertifikat yang Sudah Terdaftar */}
+                    <div className="mt-4 border-t pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h5 className={`font-bold text-xs uppercase tracking-wider ${darkMode ? 'text-slate-300' : 'text-slate-700'}`}>
+                          Sertifikat Tersimpan ({existingCertificates.length})
+                        </h5>
+                      </div>
+
+                      {existingCertificates.length === 0 ? (
+                        <p className={`text-xs italic ${darkMode ? 'text-slate-500' : 'text-slate-400'}`}>
+                          Belum ada sertifikat khusus yang ditambahkan via panel ini.
+                        </p>
+                      ) : (
+                        <div className="flex flex-col gap-2 max-h-60 overflow-y-auto pr-1">
+                          {existingCertificates.map((c: any) => (
+                            <div
+                              key={c.id}
+                              className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs ${
+                                darkMode ? 'bg-[#0c1220] border-slate-800' : 'bg-slate-50 border-slate-200'
+                              }`}
+                            >
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#2563eb] text-white">
+                                    {c.category}
+                                  </span>
+                                  <span className="font-mono text-[10px] text-slate-400">
+                                    {c.year}
+                                  </span>
+                                </div>
+                                <p className="font-bold truncate text-slate-200">
+                                  {c.title}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteCertificate(c.id)}
+                                className="p-1.5 rounded-lg text-red-400 hover:bg-red-500/20 transition-colors cursor-pointer shrink-0"
+                                title="Hapus sertifikat"
+                              >
+                                <span className="material-symbols-outlined text-base">delete</span>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* TAB 4: BACKEND SCRIPT READY TO COPY */}
                 {adminTab === 'script' && (
                   <div className="flex flex-col gap-3">
                     {/* Sub-tabs Selector */}
-                    <div className="flex items-center gap-2 p-1 rounded-xl bg-black/20 w-fit">
+                    <div className="flex flex-wrap items-center gap-2 p-1 rounded-xl bg-black/20 w-fit">
+                      <button
+                        type="button"
+                        onClick={() => setScriptTabType('sertif')}
+                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                          scriptTabType === 'sertif'
+                            ? 'bg-[#bef264] text-[#080c16] shadow-sm'
+                            : darkMode
+                            ? 'text-slate-400 hover:text-white'
+                            : 'text-slate-600 hover:text-slate-900'
+                        }`}
+                      >
+                        📜 sertif.gs (Sheet Certificates)
+                      </button>
                       <button
                         type="button"
                         onClick={() => setScriptTabType('reviews')}
@@ -1818,12 +2378,16 @@ function doPost(e) {
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                       <div>
                         <h4 className={`font-extrabold text-sm ${darkMode ? 'text-slate-100' : 'text-slate-900'}`}>
-                          {scriptTabType === 'reviews'
+                          {scriptTabType === 'sertif'
+                            ? 'Script sertif.gs (Backend Sertifikat & Penghargaan)'
+                            : scriptTabType === 'reviews'
                             ? 'Script reviews.gs (Khusus Write Review -> Sheet Rating)'
                             : 'Kode Backend All-in-One (Code.gs)'}
                         </h4>
                         <p className={`text-xs ${darkMode ? 'text-slate-400' : 'text-slate-600'}`}>
-                          {scriptTabType === 'reviews'
+                          {scriptTabType === 'sertif'
+                            ? 'Tempel di file sertif.gs pada Google Apps Script Anda untuk sinkronisasi sertifikat otomatis.'
+                            : scriptTabType === 'reviews'
                             ? 'Tempel di file reviews.gs untuk menyimpan data rating & ulasan ke sheet "Rating".'
                             : 'Script gabungan untuk mengelola Projects, Rating, dan Contacts dalam 1 Web App.'}
                         </p>
@@ -1837,14 +2401,18 @@ function doPost(e) {
                         <span className="material-symbols-outlined text-sm">
                           {copiedScript ? 'done' : 'content_copy'}
                         </span>
-                        <span>{copiedScript ? 'Tersalin!' : `Salin ${scriptTabType === 'reviews' ? 'reviews.gs' : 'Code.gs'}`}</span>
+                        <span>{copiedScript ? 'Tersalin!' : `Salin ${scriptTabType === 'sertif' ? 'sertif.gs' : scriptTabType === 'reviews' ? 'reviews.gs' : 'Code.gs'}`}</span>
                       </button>
                     </div>
 
                     <pre className={`p-4 rounded-xl border text-[11px] font-mono text-emerald-400 overflow-x-auto max-h-72 ${
                       darkMode ? 'bg-black/60 border-slate-800' : 'bg-slate-900 border-slate-800'
                     }`}>
-                      {scriptTabType === 'reviews' ? reviewsScriptCode : googleAppsScriptCode}
+                      {scriptTabType === 'sertif'
+                        ? sertifScriptCode
+                        : scriptTabType === 'reviews'
+                        ? reviewsScriptCode
+                        : googleAppsScriptCode}
                     </pre>
                   </div>
                 )}

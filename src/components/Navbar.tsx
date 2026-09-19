@@ -17,30 +17,30 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
     { id: 'tentang', label: lang === 'ID' ? 'Tentang' : 'About', href: '#tentang' },
     { id: 'keahlian', label: lang === 'ID' ? 'Keahlian' : 'Skills', href: '#keahlian' },
     { id: 'proyek-pilihan', label: lang === 'ID' ? 'Proyek Pilihan' : 'Featured Projects', href: '#proyek-pilihan' },
-    { id: 'pengalaman', label: lang === 'ID' ? 'Pengalaman' : 'Experience', href: '#pengalaman' },
+    { id: 'sertifikat', label: lang === 'ID' ? 'Sertifikat & Pengalaman' : 'Certificates & Experience', href: '#sertifikat' },
     { id: 'testimoni', label: lang === 'ID' ? 'Testimoni & Rating' : 'Reviews & Rating', href: '#testimoni' },
   ];
 
   // Detect scroll state and active section
   useEffect(() => {
     const handleScroll = () => {
-      // Check if page is scrolled down
       if (window.scrollY > 25) {
         setIsScrolled(true);
       } else {
         setIsScrolled(false);
       }
 
-      // Check active section based on scroll position
-      const scrollPosition = window.scrollY + 140; // offset for navbar height
-      const sections = ['tentang', 'keahlian', 'proyek-pilihan', 'pengalaman', 'testimoni', 'diskusi-proyek'];
+      const scrollPosition = window.scrollY + 140;
+      const sections = ['tentang', 'keahlian', 'proyek-pilihan', 'sertifikat', 'pengalaman', 'testimoni', 'diskusi-proyek'];
 
       for (let i = sections.length - 1; i >= 0; i--) {
         const element = document.getElementById(sections[i]);
         if (element) {
           const top = element.offsetTop;
           if (scrollPosition >= top) {
-            setActiveSection(sections[i]);
+            // Sertifikat & Pengalaman digabung dalam satu indikator nav
+            const targetSection = sections[i] === 'pengalaman' ? 'sertifikat' : sections[i];
+            setActiveSection(targetSection);
             break;
           }
         }
@@ -48,17 +48,16 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
-    handleScroll(); // Initial check
+    handleScroll();
 
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Smooth scroll handler with proper offset
   const scrollToSection = (e: React.MouseEvent<HTMLAnchorElement>, id: string) => {
     e.preventDefault();
     const element = document.getElementById(id);
     if (element) {
-      const headerOffset = 90; // offset in px so it doesn't scroll too far down
+      const headerOffset = 90;
       const elementPosition = element.getBoundingClientRect().top;
       const offsetPosition = elementPosition + window.pageYOffset - headerOffset;
 
@@ -79,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
         }`}
       >
         <div
-          className={`w-full backdrop-blur-xl rounded-full px-4 sm:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-3 sm:gap-4 transition-all duration-500 ${
+          className={`w-full backdrop-blur-xl rounded-full px-3 sm:px-5 lg:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3 transition-all duration-500 ${
             isScrolled
               ? darkMode
                 ? 'bg-[#0b1120]/95 border border-[#334155] shadow-[0_12px_32px_rgba(0,0,0,0.55)]'
@@ -112,7 +111,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
               </span>
             </a>
 
-            {/* Badge Open to Work - Never wraps, single line, cleanly spaced */}
+            {/* Badge Open to Work */}
             <div
               className={`hidden md:inline-flex items-center gap-1.5 px-3 py-1 rounded-full border shadow-xs whitespace-nowrap flex-shrink-0 ${
                 darkMode
@@ -145,7 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
                   key={link.id}
                   href={link.href}
                   onClick={(e) => scrollToSection(e, link.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs xl:text-sm font-bold relative whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
+                  className={`px-3 xl:px-3.5 py-1.5 rounded-full text-xs xl:text-sm font-bold relative whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
                     isActive
                       ? 'text-white'
                       : darkMode
@@ -182,8 +181,8 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
             })}
           </nav>
 
-          {/* Right Action Controls - Guaranteed safety padding so button never touches pill edge */}
-          <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
+          {/* Right Action Controls */}
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
             {/* Language Toggle */}
             <div
               className={`flex items-center p-0.5 rounded-full border text-[11px] font-bold transition-colors flex-shrink-0 ${
@@ -240,7 +239,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
               </span>
             </button>
 
-            {/* Direct Contact Button with strict flex-shrink-0 and comfortable inner margin */}
+            {/* Direct Contact Button */}
             <a
               href="#diskusi-proyek"
               onClick={(e) => scrollToSection(e, 'diskusi-proyek')}
@@ -271,7 +270,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
           </div>
         </div>
 
-        {/* Mobile Dropdown Menu with distinct color hierarchy */}
+        {/* Mobile Dropdown Menu */}
         {mobileMenuOpen && (
           <div
             className={`lg:hidden mt-2 p-4 rounded-3xl border shadow-2xl backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 ${
@@ -308,7 +307,6 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
                 );
               })}
               
-              {/* Bottom CTA Button: Distinct and never conflicts with active tab */}
               <a
                 href="#diskusi-proyek"
                 onClick={(e) => scrollToSection(e, 'diskusi-proyek')}

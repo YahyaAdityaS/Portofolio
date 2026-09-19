@@ -1,30 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { ProjectItem } from '../types';
 import { PROJECTS } from '../data/portfolioData';
-
-// Extended ProjectItem interface guaranteeing full type safety across environments
-export interface ProjectItem {
-  id: string;
-  category: 'all' | 'fullstack' | 'backend' | 'designsystem' | string;
-  year: string;
-  badge: string;
-  badgeBg?: string;
-  badgeText?: string;
-  title: string;
-  subtitle?: string;
-  description: string;
-  tags: string[];
-  status: string;
-  actionText?: string;
-  type?: 'plagin' | 'karsa' | 'finflow' | 'nusantara' | string;
-  imageUrl?: string;
-  githubUrl?: string;
-  demoUrl?: string;
-  image?: string;
-  github?: string;
-  demo?: string;
-  liveUrl?: string;
-  [key: string]: any;
-}
 
 function extractGoogleDriveId(url: string): string | null {
   if (!url || typeof url !== 'string') return null;
@@ -294,7 +270,12 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
     : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3';
 
   return (
-    <section className="w-full py-space-xl transition-colors duration-300 scroll-mt-28" id="proyek-pilihan">
+    <section
+      className={`w-full py-space-xl transition-colors duration-300 scroll-mt-28 ${
+        darkMode ? 'bg-[#080c16]' : 'bg-[#faf8ff]'
+      }`}
+      id="proyek-pilihan"
+    >
       <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-10">
         
         {/* Section Top Header */}
@@ -308,7 +289,7 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
               }`}
             >
               <span className="material-symbols-outlined text-sm">stars</span>
-              <span className="tracking-wider">SELECTED ARCHIVES</span>
+              <span className="tracking-wider">{lang === 'ID' ? 'ARSIP TERPILIH' : 'SELECTED ARCHIVES'}</span>
             </div>
             <h2
               className={`text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight ${

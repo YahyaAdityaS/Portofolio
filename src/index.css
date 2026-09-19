@@ -93,6 +93,44 @@
   display: none;
 }
 
+/* Custom visible scrollbar for modal card */
+.modal-scrollbar {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(148, 163, 184, 0.4) transparent;
+}
+
+.modal-scrollbar::-webkit-scrollbar {
+  display: block;
+  width: 6px;
+}
+
+.modal-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 8px 0;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.35);
+  border-radius: 9999px;
+}
+
+.modal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.6);
+}
+
+html.dark .modal-scrollbar {
+  scrollbar-color: rgba(100, 116, 139, 0.5) transparent;
+}
+
+html.dark .modal-scrollbar::-webkit-scrollbar-thumb {
+  background-color: rgba(100, 116, 139, 0.45);
+}
+
+html.dark .modal-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(148, 163, 184, 0.7);
+}
+
 @keyframes marquee {
   0% { transform: translateX(0%); }
   100% { transform: translateX(-50%); }
@@ -167,4 +205,3 @@ html {
     border: none !important;
   }
 }
-

@@ -1,40 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
-import { Navbar } from './components/Navbar';
-import { Hero } from './components/Hero';
-import { Marquee } from './components/Marquee';
-import { StatsAndBio } from './components/StatsAndBio';
-import { Skills } from './components/Skills';
-import { Projects } from './components/Projects';
-import { Experience } from './components/Experience';
-import { Testimonials } from './components/Testimonials';
-import { Contact } from './components/Contact';
-import { Footer } from './components/Footer';
-import { ProjectModal } from './components/ProjectModal';
-import { CursorFollower } from './components/CursorFollower';
-import { CVModal } from './components/CVModal';
-import { AdminModal } from './components/AdminModal';
-import { LoadingScreen } from './components/LoadingScreen';
-import { ProjectItem } from './data/portfolioData';
+import React, { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { Navbar } from "./components/Navbar";
+import { Hero } from "./components/Hero";
+import { Marquee } from "./components/Marquee";
+import { StatsAndBio } from "./components/StatsAndBio";
+import { Skills } from "./components/Skills";
+import { Projects } from "./components/Projects";
+import { Certificates } from "./components/Certificates";
+import { Experience } from "./components/Experience";
+import { Testimonials } from "./components/Testimonials";
+import { Contact } from "./components/Contact";
+import { Footer } from "./components/Footer";
+import { ProjectModal } from "./components/ProjectModal";
+import { CursorFollower } from "./components/CursorFollower";
+import { CVModal } from "./components/CVModal";
+import { AdminModal } from "./components/AdminModal";
+import { LoadingScreen } from "./components/LoadingScreen";
+import { ProjectItem } from "./data/portfolioData";
 
 export default function App() {
-  const [lang, setLang] = useState<'ID' | 'EN'>(() => {
+  const [lang, setLang] = useState<"ID" | "EN">(() => {
     try {
-      const savedLang = localStorage.getItem('yas_portfolio_lang');
-      if (savedLang === 'ID' || savedLang === 'EN') {
+      const savedLang = localStorage.getItem("yas_portfolio_lang");
+      if (savedLang === "ID" || savedLang === "EN") {
         return savedLang;
       }
     } catch {
       // Fallback if localStorage is unavailable
     }
-    return 'ID';
+    return "ID";
   });
 
   const [darkMode, setDarkMode] = useState<boolean>(() => {
     try {
-      const savedTheme = localStorage.getItem('yas_portfolio_theme');
+      const savedTheme = localStorage.getItem("yas_portfolio_theme");
       if (savedTheme !== null) {
-        return savedTheme === 'dark';
+        return savedTheme === "dark";
       }
     } catch {
       // Fallback if localStorage is unavailable
@@ -44,7 +45,7 @@ export default function App() {
   // Show initial loading screen on first time visit or if last visit was >= 2 days ago (48 hours)
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     try {
-      const lastVisit = localStorage.getItem('yas_portfolio_last_visit');
+      const lastVisit = localStorage.getItem("yas_portfolio_last_visit");
       if (!lastVisit) {
         // First time opening the portfolio -> show loading screen
         return true;
@@ -58,35 +59,37 @@ export default function App() {
       return false;
     }
   });
-  const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(null);
+  const [selectedProject, setSelectedProject] = useState<ProjectItem | null>(
+    null,
+  );
   const [isCVOpen, setIsCVOpen] = useState<boolean>(false);
   const [isAdminOpen, setIsAdminOpen] = useState<boolean>(false);
 
   useEffect(() => {
     try {
-      localStorage.setItem('yas_portfolio_lang', lang);
+      localStorage.setItem("yas_portfolio_lang", lang);
     } catch {
       // Ignore in strict private mode
     }
-    document.documentElement.lang = lang === 'ID' ? 'id' : 'en';
+    document.documentElement.lang = lang === "ID" ? "id" : "en";
   }, [lang]);
 
   useEffect(() => {
     try {
-      localStorage.setItem('yas_portfolio_theme', darkMode ? 'dark' : 'light');
+      localStorage.setItem("yas_portfolio_theme", darkMode ? "dark" : "light");
     } catch {
       // Ignore in strict private mode
     }
     if (darkMode) {
-      document.documentElement.classList.add('dark');
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove('dark');
+      document.documentElement.classList.remove("dark");
     }
   }, [darkMode]);
 
   const handleLoadingComplete = () => {
     try {
-      localStorage.setItem('yas_portfolio_last_visit', Date.now().toString());
+      localStorage.setItem("yas_portfolio_last_visit", Date.now().toString());
     } catch (e) {
       // Ignore in strict private mode
     }
@@ -97,8 +100,8 @@ export default function App() {
     <div
       className={`font-sans antialiased min-h-screen flex flex-col transition-colors duration-300 relative ${
         darkMode
-          ? 'bg-[#080c16] text-[#f8fafc] selection:bg-[#bef264] selection:text-[#080c16]'
-          : 'bg-[#faf8ff] text-[#131b2e] selection:bg-[#c1f100] selection:text-[#546b00]'
+          ? "bg-[#080c16] text-[#f8fafc] selection:bg-[#bef264] selection:text-[#080c16]"
+          : "bg-[#faf8ff] text-[#131b2e] selection:bg-[#c1f100] selection:text-[#546b00]"
       }`}
     >
       {/* Interactive Cursor Follower with Shadow Glow Effect */}
@@ -129,13 +132,13 @@ export default function App() {
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: isLoading ? 0 : 1 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
         className="w-full flex-grow flex flex-col min-h-screen"
       >
         {/* Main Content Sections */}
         <main
           className={`w-full pt-20 flex-grow transition-colors duration-300 ${
-            darkMode ? 'bg-[#080c16]' : 'bg-[#faf8ff]'
+            darkMode ? "bg-[#080c16]" : "bg-[#faf8ff]"
           }`}
         >
           <div className="flex flex-col w-full">
@@ -161,6 +164,9 @@ export default function App() {
               darkMode={darkMode}
               onSelectProject={(project) => setSelectedProject(project)}
             />
+
+            {/* Certificates & Honors Section */}
+            <Certificates lang={lang} darkMode={darkMode} />
 
             {/* Linimasa & Pengalaman Kerja (Timeline) */}
             <Experience lang={lang} darkMode={darkMode} />

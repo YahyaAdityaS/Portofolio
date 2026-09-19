@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ProjectItem } from '../data/portfolioData';
+import { ProjectItem } from '../types';
 
 function extractGoogleDriveId(url: string): string | null {
   if (!url || typeof url !== 'string') return null;
@@ -83,7 +83,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
     <AnimatePresence>
       <div
         key="modal-backdrop"
-        className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto"
+        className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md overflow-y-auto"
         onClick={onClose}
       >
         <motion.div
@@ -96,7 +96,7 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
             damping: 26,
             stiffness: 340,
           }}
-          className={`rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl border relative max-h-[90vh] overflow-y-auto flex flex-col transition-colors ${
+          className={`rounded-3xl max-w-2xl w-full p-5 sm:p-8 shadow-2xl border relative max-h-[85vh] sm:max-h-[90vh] modal-scrollbar flex flex-col transition-colors ${
             darkMode
               ? 'bg-[#111a2e] border-[#23324f] shadow-[0_25px_60px_rgba(0,0,0,0.8)]'
               : 'bg-white border-slate-200 shadow-[0_25px_60px_rgba(37,99,235,0.15)]'
@@ -131,13 +131,6 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
             <span className={`text-xs font-bold ${darkMode ? 'text-[#94a3b8]' : 'text-slate-500'}`}>
               • {project.year || '2026'}
             </span>
-            {project.status && (
-              <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${
-                darkMode ? 'bg-[#16223b] text-[#38bdf8]' : 'bg-blue-50 text-primary'
-              }`}>
-                {project.status}
-              </span>
-            )}
           </motion.div>
 
           {/* Title */}
@@ -164,13 +157,13 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
             {project.description}
           </motion.p>
 
-          {/* Image Thumbnail (Menggantikan Spesifikasi Arsitektur & Performa) */}
+          {/* Image Thumbnail */}
           {imageSrc && (
             <motion.div
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.25 }}
-              className={`w-full h-52 sm:h-64 rounded-2xl overflow-hidden mb-5 border relative bg-black/30 shadow-inner ${
+              className={`w-full h-52 sm:h-64 rounded-2xl overflow-hidden mb-5 border relative bg-black/30 shadow-inner shrink-0 ${
                 darkMode ? 'border-[#23324f]' : 'border-slate-200'
               }`}
             >
@@ -217,10 +210,10 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
 
           {/* Modal Footer CTA Buttons:
               - Sebelah kiri: Button GitHub dan Live Demo (jika ada di database)
-              - Sebelah kanan: Close dan Inquire Project
+              - Sebelah kanan: Inquire Project
               - Tampilan mobile: Tersusun ke bawah (flex-col) agar leluasa di layar kecil */}
           <div
-            className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-5 border-t mt-auto ${
+            className={`flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-5 border-t mt-auto shrink-0 ${
               darkMode ? 'border-[#1e293b]' : 'border-slate-100'
             }`}
           >
@@ -258,19 +251,8 @@ export const ProjectModal: React.FC<ProjectModalProps> = ({ project, onClose, la
               <div className="hidden sm:block" />
             )}
 
-            {/* Bagian Kanan: Close & Inquire Project */}
+            {/* Bagian Kanan: Inquire Project */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className={`px-5 py-2.5 rounded-full text-xs sm:text-sm font-bold transition-colors cursor-pointer text-center ${
-                  darkMode
-                    ? 'text-[#cbd5e1] hover:bg-[#16223b]'
-                    : 'text-slate-600 hover:bg-slate-100'
-                }`}
-              >
-                {lang === 'ID' ? 'Tutup' : 'Close'}
-              </button>
               <a
                 href="#diskusi-proyek"
                 onClick={onClose}

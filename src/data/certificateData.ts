@@ -1,0 +1,58 @@
+import { CertificateItem } from '../types';
+
+export type { CertificateItem };
+
+export const INITIAL_CERTIFICATES: CertificateItem[] = [
+  {
+    id: 'CERT-001',
+    title: 'Juara 1 UI/UX Design Competition (Plag-In)',
+    desc: 'Penghargaan Juara 1 tingkat nasional dalam perancangan aplikasi inovatif anti plagiarisme akademik berbasis AI & interaksi adaptif.',
+    description: 'Penghargaan Juara 1 tingkat nasional dalam perancangan aplikasi inovatif anti plagiarisme akademik berbasis AI & interaksi adaptif.',
+    category: 'Design',
+    tags: ['UI/UX Design', 'Juara 1', 'Kompetisi Nasional', 'Figma'],
+    image: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1579546929518-9e396f3cc809?auto=format&fit=crop&w=1200&q=80',
+    year: '2024',
+    badge: 'Design',
+    issuer: 'National Design Competition',
+  },
+  {
+    id: 'CERT-002',
+    title: 'Google UX Design Professional Certificate',
+    desc: 'Sertifikasi profesional spesialisasi riset pengguna, wireframing, high-fidelity prototyping, dan usability study.',
+    description: 'Sertifikasi profesional spesialisasi riset pengguna, wireframing, high-fidelity prototyping, dan usability study.',
+    category: 'Design',
+    tags: ['Google', 'UX Research', 'Design System', 'Prototyping'],
+    image: 'https://images.unsplash.com/photo-1589330694653-dad6ef0140be?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1589330694653-dad6ef0140be?auto=format&fit=crop&w=1200&q=80',
+    year: '2024',
+    badge: 'Design',
+    issuer: 'Google Career Certificates',
+  },
+  {
+    id: 'CERT-003',
+    title: 'Frontend Web Development & Modern JavaScript',
+    desc: 'Sertifikasi kompetensi pembangunan antarmuka web interaktif menggunakan React, TypeScript, Tailwind CSS, dan integrasi RESTful API.',
+    description: 'Sertifikasi kompetensi pembangunan antarmuka web interaktif menggunakan React, TypeScript, Tailwind CSS, dan integrasi RESTful API.',
+    category: 'Tech',
+    tags: ['Frontend', 'React', 'TypeScript', 'Tailwind CSS'],
+    image: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80',
+    year: '2023',
+    badge: 'Tech',
+    issuer: 'Dicoding Academy',
+  },
+  {
+    id: 'CERT-004',
+    title: 'Creative Brand Strategy & Digital Marketing',
+    desc: 'Pelatihan intensif penyusunan strategi identitas visual brand, positioning produk, komunikasi pemasaran, dan konten visual kreatif.',
+    description: 'Pelatihan intensif penyusunan strategi identitas visual brand, positioning produk, komunikasi pemasaran, dan konten visual kreatif.',
+    category: 'Business & Skills',
+    tags: ['Branding', 'Digital Marketing', 'Business', 'Communication'],
+    image: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=1200&q=80',
+    imageUrl: 'https://images.unsplash.com/photo-1557804506-669a67965ba0?auto=format&fit=crop&w=1200&q=80',
+    year: '2023',
+    badge: 'Business & Skills',
+    issuer: 'Professional Workshop Series',
+  },
+];

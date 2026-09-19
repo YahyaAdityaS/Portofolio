@@ -1,49 +1,58 @@
-export interface Project {
+export interface ProjectItem {
+  id: string;
+  category: 'all' | 'fullstack' | 'backend' | 'designsystem' | string;
+  categoryLabel?: string;
+  year: string;
+  badge?: string;
+  badgeBg?: string;
+  badgeText?: string;
+  title: string;
+  subtitle?: string;
+  description: string;
+  role?: string;
+  tags: string[];
+  status?: string;
+  actionText?: string;
+  type?: string;
+  imageUrl?: string;
+  githubUrl?: string;
+  demoUrl?: string;
+  image?: string;
+  github?: string;
+  demo?: string;
+  liveUrl?: string;
+  colSpanDesktop?: number;
+  metrics?: { label: string; value: string }[];
+  [key: string]: any;
+}
+
+export type Project = ProjectItem;
+
+export interface CertificateItem {
   id: string;
   title: string;
-  tagline: string;
-  description: string;
-  longDescription: string;
-  category: 'web' | 'mobile' | 'creative' | 'ai';
-  categoryLabel: string;
-  year: string;
-  role: string;
-  deliverables: string[];
-  metrics?: { label: string; value: string }[];
+  desc?: string;
+  description?: string;
+  category: 'Design' | 'Tech' | 'Business & Skills' | string;
   tags: string[];
   image: string;
-  secondaryImage?: string;
-  accentColor: string; // e.g., '#1D4ED8' or '#CCFF00' or '#A78BFA'
-  accentText: string;
-  featured?: boolean;
-  colSpanDesktop: 8 | 4 | 6 | 12;
-  liveUrl?: string;
-  githubUrl?: string;
+  imageUrl?: string;
+  year?: string;
+  badge?: string;
+  issuer?: string;
 }
 
-export interface SkillCategory {
+export interface TestimonialItem {
   id: string;
-  name: string;
-  skills: {
-    name: string;
-    level: string; // 'Expert' | 'Advanced' | 'Proficient'
-    iconName: string;
-    description: string;
-    hotTag?: boolean;
-  }[];
-}
-
-export interface ExperienceItem {
-  id: string;
-  period: string;
+  author: string;
   role: string;
-  company: string;
-  location: string;
-  type: string; // 'Full-time' | 'Contract' | 'Lead'
-  description: string;
-  highlights: string[];
-  technologies: string[];
-  featured?: boolean;
+  stars: number;
+  quote: string;
+  avatar: string;
+  avatarBg: string;
+  avatarText: string;
+  approved: boolean;
+  timestamp: string;
 }
 
 export interface Testimonial {
@@ -52,31 +61,34 @@ export interface Testimonial {
   role: string;
   company: string;
   avatar: string;
+  rating: number;
   content: string;
   projectWorkedOn: string;
-  rating: number;
 }
 
-export interface ProjectItem {
-  id: string;
-  category: 'all' | 'fullstack' | 'backend' | 'designsystem' | string;
-  year: string;
-  badge: string;
-  badgeBg?: string;
-  badgeText?: string;
-  title: string;
-  subtitle?: string;
+export interface SkillItem {
+  name: string;
+  level: 'Expert' | 'Advanced' | 'Proficient';
+  iconName: string;
   description: string;
-  tags: string[];
-  status: string;
-  actionText?: string;
-  type?: 'plagin' | 'karsa' | 'finflow' | 'nusantara' | string;
-  imageUrl?: string;
-  githubUrl?: string;
-  demoUrl?: string;
-  image?: string;
-  github?: string;
-  demo?: string;
-  liveUrl?: string;
-  [key: string]: any;
+  hotTag?: boolean;
+}
+
+export interface SkillCategory {
+  id: string;
+  name: string;
+  skills: SkillItem[];
+}
+
+export interface ExperienceItem {
+  id: string;
+  role: string;
+  company: string;
+  location: string;
+  period: string;
+  type: string;
+  featured?: boolean;
+  description: string;
+  highlights: string[];
+  technologies: string[];
 }
