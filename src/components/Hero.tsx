@@ -294,7 +294,7 @@ export const Hero: React.FC<HeroProps> = ({ lang, darkMode, onOpenCV }) => {
                 }`}
               >
                 <img
-                  src="/public/images/yahyadityas.webp"
+                  src="/images/yahyadityas.webp"
                   alt="Yahya Aditya Saputra"
                   className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
                   referrerPolicy="no-referrer"
