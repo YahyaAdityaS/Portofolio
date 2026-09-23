@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CertificateItem } from '../types';
 import { INITIAL_CERTIFICATES } from '../data/certificateData';
 import { CertificateModal } from './CertificateModal';
+import { CERTIFICATES_API_URL } from '../config/apiEndpoints';
 
 function extractGoogleDriveId(url: string): string | null {
   if (!url || typeof url !== 'string') return null;
@@ -48,9 +49,6 @@ interface CertificatesProps {
 
 const CARDS_PER_PAGE = 3;
 
-// Backend Google Apps Script Web App URL untuk sinkronisasi sertifikat secara otomatis
-const CERT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl_PVOYI-Y6LeMfNNlSG3ogxqu-U3kq2wgu1D45J_34MJJ-Fd5XMVC_DvXPz04Tagx/exec';
-
 export const Certificates: React.FC<CertificatesProps> = ({ lang, darkMode }) => {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -92,7 +90,7 @@ export const Certificates: React.FC<CertificatesProps> = ({ lang, darkMode }) =>
 
   // Sync with Google Apps Script Webhook automatically from code
   useEffect(() => {
-    const certWebhookUrl = CERT_SCRIPT_URL || localStorage.getItem('yas_certificates_webhook_url');
+    const certWebhookUrl = CERTIFICATES_API_URL || localStorage.getItem('yas_certificates_webhook_url');
     if (!certWebhookUrl) return;
 
     let isMounted = true;

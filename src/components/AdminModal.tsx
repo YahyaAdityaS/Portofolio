@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import { PROJECTS_API_URL, CERTIFICATES_API_URL, REVIEWS_API_URL } from '../config/apiEndpoints';
 
 // Self-contained Google Drive image url formatter
 function formatGoogleDriveUrl(url?: string): string {
@@ -123,10 +124,10 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   // Active Tab in Admin
   const [adminTab, setAdminTab] = useState<'moderation' | 'projects' | 'certificates' | 'script'>('projects');
 
-  // Hardcoded deployed backend Webhook URL
-  const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzlNIlLj2wW17A14t6amS6wCVY69b-lF12mufIMHRECaFLYE9BDJ1LDrjtJdFhxMClg/exec';
+  // Deployed backend Webhook URL - dari satu sumber pusat (src/config/apiEndpoints.ts)
+  const SCRIPT_URL = PROJECTS_API_URL;
   // Backend Google Apps Script Web App URL untuk Sertifikat (sertif.gs)
-  const CERT_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwl_PVOYI-Y6LeMfNNlSG3ogxqu-U3kq2wgu1D45J_34MJJ-Fd5XMVC_DvXPz04Tagx/exec';
+  const CERT_SCRIPT_URL = CERTIFICATES_API_URL;
 
   // Reviews for moderation
   const [reviews, setReviews] = useState<TestimonialItem[]>([]);
@@ -185,8 +186,7 @@ export const AdminModal: React.FC<AdminModalProps> = ({
   const refreshReviews = async () => {
     const approvedIds = getApprovedReviewIds();
     const REVIEWS_SCRIPT_URL =
-      localStorage.getItem('yas_reviews_webhook_url') ||
-      'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
+      localStorage.getItem('yas_reviews_webhook_url') || REVIEWS_API_URL;
 
     try {
       const res = await fetch(REVIEWS_SCRIPT_URL);
@@ -1051,7 +1051,7 @@ function doPost(e) {
     localStorage.setItem('yas_portfolio_reviews', JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('yas_reviews_updated'));
 
-    const REVIEWS_URL = 'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
+    const REVIEWS_URL = REVIEWS_API_URL;
     try {
       await fetch(REVIEWS_URL, {
         method: 'POST',
@@ -1084,7 +1084,7 @@ function doPost(e) {
     localStorage.setItem('yas_portfolio_reviews', JSON.stringify(updated));
     window.dispatchEvent(new CustomEvent('yas_reviews_updated'));
 
-    const REVIEWS_URL = 'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
+    const REVIEWS_URL = REVIEWS_API_URL;
     try {
       await fetch(REVIEWS_URL, {
         method: 'POST',

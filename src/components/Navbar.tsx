@@ -78,7 +78,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
         }`}
       >
         <div
-          className={`w-full backdrop-blur-xl rounded-full px-3 sm:px-5 lg:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-2 sm:gap-3 transition-all duration-500 ${
+          className={`w-full backdrop-blur-xl rounded-full px-3 sm:px-5 lg:px-6 py-2 sm:py-2.5 flex items-center justify-between gap-1.5 sm:gap-2 transition-all duration-500 ${
             isScrolled
               ? darkMode
                 ? 'bg-[#0b1120]/95 border border-[#334155] shadow-[0_12px_32px_rgba(0,0,0,0.55)]'
@@ -131,7 +131,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
 
           {/* Center Navigation Links with Active State */}
           <nav
-            className={`hidden lg:flex items-center gap-1 p-1 rounded-full border transition-all duration-300 flex-shrink-0 relative ${
+            className={`hidden lg:flex items-center gap-0 p-1 rounded-full border transition-all duration-300 relative ${
               darkMode
                 ? 'bg-[#111a2e]/80 border-[#23324f]'
                 : 'bg-[#f2f3ff]/80 border-[#eaedff]'
@@ -144,7 +144,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
                   key={link.id}
                   href={link.href}
                   onClick={(e) => scrollToSection(e, link.id)}
-                  className={`px-3 xl:px-3.5 py-1.5 rounded-full text-xs xl:text-sm font-bold relative whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
+                  className={`px-2 xl:px-2.5 py-1.5 rounded-full text-xs xl:text-sm font-bold relative whitespace-nowrap flex-shrink-0 transition-colors duration-200 ${
                     isActive
                       ? 'text-white'
                       : darkMode
@@ -182,7 +182,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
           </nav>
 
           {/* Right Action Controls */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
+          <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
             {/* Language Toggle */}
             <div
               className={`flex items-center p-0.5 rounded-full border text-[11px] font-bold transition-colors flex-shrink-0 ${
@@ -243,7 +243,7 @@ export const Navbar: React.FC<NavbarProps> = ({ lang, setLang, darkMode, setDark
             <a
               href="#diskusi-proyek"
               onClick={(e) => scrollToSection(e, 'diskusi-proyek')}
-              className={`hidden sm:inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full font-bold text-xs transition-all flex-shrink-0 shadow-xs hover:shadow-sm ${
+              className={`hidden sm:inline-flex items-center justify-center gap-1 px-3 py-1.5 rounded-full font-bold text-xs transition-all flex-shrink-0 shadow-xs hover:shadow-sm ${
                 darkMode
                   ? 'bg-[#bef264] hover:bg-[#a3e635] text-[#080c16]'
                   : 'bg-[#2563eb] hover:bg-[#1d4ed8] text-white'

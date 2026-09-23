@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ProjectItem } from '../types';
 import { PROJECTS } from '../data/portfolioData';
+import { PROJECTS_API_URL } from '../config/apiEndpoints';
 
 function extractGoogleDriveId(url: string): string | null {
   if (!url || typeof url !== 'string') return null;
@@ -49,8 +50,6 @@ interface ProjectsProps {
   onSelectProject: (project: ProjectItem) => void;
 }
 
-const APPS_SCRIPT_PROJECTS_URL = 'https://script.google.com/macros/s/AKfycbzlNIlLj2wW17A14t6amS6wCVY69b-lF12mufIMHRECaFLYE9BDJ1LDrjtJdFhxMClg/exec';
-
 export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProject }) => {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   
@@ -88,7 +87,7 @@ export const Projects: React.FC<ProjectsProps> = ({ lang, darkMode, onSelectProj
 
     const fetchSheetProjects = async () => {
       try {
-        const res = await fetch(APPS_SCRIPT_PROJECTS_URL, {
+        const res = await fetch(PROJECTS_API_URL, {
           signal: controller.signal,
         });
         const data = await res.json();

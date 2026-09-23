@@ -20,7 +20,7 @@ export const Contact: React.FC<ContactProps> = ({ lang, darkMode }) => {
   const [copiedEmail, setCopiedEmail] = useState(false);
   const [isServiceDropdownOpen, setIsServiceDropdownOpen] = useState(false);
 
-  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxObfZfzBGxrV4HI6W1Iso4jaKp-Ac-ODyWsjS00SeBNF4PWYljGEe0b-7pr6kzQUVV/exec';
+  const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbygS01EkW798vKZsg8ixDrLndZZNoE7gx_r36l-UFDBJgXfUOpCJdrG6Dn73rmeylI3/exec';
 
   const serviceOptions = [
     {

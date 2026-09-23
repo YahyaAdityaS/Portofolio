@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { TestimonialItem } from '../types';
+import { REVIEWS_API_URL } from '../config/apiEndpoints';
 
 function generateReviewId(author: string, quote: string, timestamp?: string, fallbackIdx?: number): string {
   const cleanAuthor = (author || 'user').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 16);
@@ -18,8 +19,7 @@ interface TestimonialsProps {
 }
 
 export const Testimonials: React.FC<TestimonialsProps> = ({ lang, darkMode, onOpenAdmin }) => {
-  const DEFAULT_WEBHOOK_URL =
-    'https://script.google.com/macros/s/AKfycbxBQkvKe85FvYo5AKEbUPoVR8-9o9vFgppKYgigwgXfdhhzHKtiHmlvZ9Q3U7FJiR81/exec';
+  const DEFAULT_WEBHOOK_URL = REVIEWS_API_URL;
 
   const [reviews, setReviews] = useState<TestimonialItem[]>(() => {
     const saved = localStorage.getItem('yas_portfolio_reviews');
